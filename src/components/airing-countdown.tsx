@@ -16,10 +16,13 @@ function formatGap(ms: number) {
 export function AiringCountdown({
   episodeNumber,
   airingAt,
+  polling,
 }: {
   episodeNumber: number;
   /** ISO string — a Date crossing the server/client boundary is not worth it. */
   airingAt: string;
+  /** Whether a Nyaa feed is saved, and so whether anything is actually looking. */
+  polling: boolean;
 }) {
   const target = new Date(airingAt).getTime();
 
@@ -38,7 +41,7 @@ export function AiringCountdown({
       ? null
       : now < target
         ? `airs in ${formatGap(target - now)}`
-        : `aired ${formatGap(now - target)} ago — checking for a release`;
+        : `aired ${formatGap(now - target)} ago${polling ? " — checking for a release" : ""}`;
 
   return (
     <p className="mt-2 text-xs text-muted">

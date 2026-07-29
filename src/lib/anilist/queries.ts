@@ -13,6 +13,8 @@ export type AniListMedia = {
   averageScore: number | null;
   genres: string[];
   description: string | null;
+  /** Null unless the show is currently releasing. `airingAt` is unix seconds. */
+  nextAiringEpisode: { episode: number; airingAt: number } | null;
 };
 
 const MEDIA_FIELDS = `
@@ -28,6 +30,7 @@ const MEDIA_FIELDS = `
   averageScore
   genres
   description(asHtml: false)
+  nextAiringEpisode { episode airingAt }
 `;
 
 export async function searchMedia(

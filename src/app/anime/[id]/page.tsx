@@ -58,10 +58,22 @@ export default async function AnimeDetailPage({
   // Extra metadata is a nicety — the page must still render if AniList is down.
   let description: string | null = null;
   let genres: string[] = [];
+  // Read live rather than from the row the poller maintains: the countdown is
+  // useful for any releasing show, whether or not a Nyaa feed was ever set up.
+  let nextAiring: { episode: number; airingAt: Date } | null =
+    entry.nextAiringAt && entry.nextAiringEpisode
+      ? { episode: entry.nextAiringEpisode, airingAt: entry.nextAiringAt }
+      : null;
   try {
     const media = await mediaById(entry.anilistMediaId);
     description = stripHtml(media?.description ?? null);
     genres = media?.genres ?? [];
+    nextAiring = media?.nextAiringEpisode
+      ? {
+          episode: media.nextAiringEpisode.episode,
+          airingAt: new Date(media.nextAiringEpisode.airingAt * 1000),
+        }
+      : null;
   } catch (error) {
     if (!(error instanceof AniListError)) throw error;
   }
@@ -107,10 +119,11 @@ export default async function AnimeDetailPage({
               <p className="mt-2 text-xs text-muted">{genres.join(" · ")}</p>
             ) : null}
 
-            {entry.nextAiringAt && entry.nextAiringEpisode ? (
+            {nextAiring ? (
               <AiringCountdown
-                episodeNumber={entry.nextAiringEpisode}
-                airingAt={entry.nextAiringAt.toISOString()}
+                episodeNumber={nextAiring.episode}
+                airingAt={nextAiring.airingAt.toISOString()}
+                polling={filter !== undefined}
               />
             ) : null}
 
