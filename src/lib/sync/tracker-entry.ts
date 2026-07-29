@@ -67,7 +67,7 @@ export async function writeAniListEntry(
   values: { progress: number; status: MirrorStatus; score: number }
 ) {
   await anilistRequest(
-    `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Float) {
+    `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Int) {
        SaveMediaListEntry(
          mediaId: $mediaId, progress: $progress, status: $status, scoreRaw: $score
        ) { id }
