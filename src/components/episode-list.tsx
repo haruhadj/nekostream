@@ -63,10 +63,12 @@ export function EpisodeList({
 
   return (
     <section className="mt-8">
-      <div className="flex flex-wrap items-baseline justify-between gap-3">
+      {/* Stacks on mobile: the status line and Refresh have no room to share a
+          baseline with the heading at phone width. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-baseline sm:justify-between sm:gap-3">
         <h2 className="text-sm font-semibold">Episodes</h2>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between gap-3 sm:justify-end">
           <p className="text-xs text-muted" aria-live="polite">
             {message ??
               (lastFetchedAt
@@ -77,7 +79,7 @@ export function EpisodeList({
             type="button"
             onClick={refresh}
             disabled={refreshing || !hasFilter}
-            className="rounded-lg border border-edge px-3 py-1.5 text-xs font-medium transition hover:bg-surface disabled:opacity-50"
+            className="min-h-11 shrink-0 rounded-lg border border-edge px-4 text-xs font-medium transition hover:bg-surface disabled:opacity-50 sm:min-h-0 sm:py-1.5"
           >
             {refreshing ? "Checking…" : "Refresh"}
           </button>
@@ -100,58 +102,71 @@ export function EpisodeList({
             <li
               key={ep.id}
               className={[
-                "flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3",
+                // Two tiers on mobile — details above, actions below — folding
+                // into a single row once there is width for it.
+                "flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:gap-4",
                 watched ? "bg-surface/10" : "bg-surface/30",
               ].join(" ")}
             >
-              <span
-                className={[
-                  "w-12 shrink-0 font-mono text-sm",
-                  watched ? "text-muted" : "text-cream",
-                ].join(" ")}
-              >
-                {ep.episodeNumber !== null ? `#${ep.episodeNumber}` : "—"}
-              </span>
+              <div className="flex min-w-0 flex-1 items-start gap-3">
+                <span
+                  className={[
+                    "mt-0.5 shrink-0 rounded-md border border-edge px-2 py-1 font-mono text-xs tabular-nums",
+                    watched ? "text-muted" : "text-cream",
+                  ].join(" ")}
+                >
+                  {ep.episodeNumber !== null ? ep.episodeNumber : "—"}
+                </span>
 
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-sm" title={ep.rawTitle}>
-                  {ep.rawTitle}
-                </p>
-                <p className="mt-0.5 text-xs text-muted">
-                  {[
-                    ep.releaseGroup,
-                    ep.quality,
-                    formatBytes(ep.sizeBytes),
-                    ep.seeders !== null ? `${ep.seeders} seeders` : null,
-                    formatRelative(ep.publishedAt),
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
-                </p>
+                <div className="min-w-0 flex-1">
+                  {/* Release titles run long; two lines on mobile beats
+                      truncating them to nothing. */}
+                  <p
+                    className="line-clamp-2 text-sm leading-snug sm:truncate"
+                    title={ep.rawTitle}
+                  >
+                    {ep.rawTitle}
+                  </p>
+                  <p className="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-xs text-muted">
+                    {[
+                      ep.releaseGroup,
+                      ep.quality,
+                      formatBytes(ep.sizeBytes),
+                      ep.seeders !== null ? `${ep.seeders} seeders` : null,
+                      formatRelative(ep.publishedAt),
+                    ]
+                      .filter(Boolean)
+                      .map((bit, i) => (
+                        <span key={i}>{bit}</span>
+                      ))}
+                  </p>
+                </div>
               </div>
 
-              {ep.episodeNumber !== null ? (
-                <button
-                  type="button"
-                  disabled={saving}
-                  // Marking episode N watched means progress is at least N.
-                  onClick={() =>
-                    setProgress(watched ? ep.episodeNumber! - 1 : ep.episodeNumber!)
-                  }
-                  className="shrink-0 rounded-lg border border-edge px-3 py-1.5 text-xs font-medium text-muted transition hover:bg-surface hover:text-cream disabled:opacity-50"
-                >
-                  {watched ? "Watched" : "Mark watched"}
-                </button>
-              ) : null}
+              <div className="flex shrink-0 gap-2">
+                {ep.episodeNumber !== null ? (
+                  <button
+                    type="button"
+                    disabled={saving}
+                    // Marking episode N watched means progress is at least N.
+                    onClick={() =>
+                      setProgress(watched ? ep.episodeNumber! - 1 : ep.episodeNumber!)
+                    }
+                    className="min-h-11 flex-1 rounded-lg border border-edge px-3 text-xs font-medium text-muted transition hover:bg-surface hover:text-cream disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5"
+                  >
+                    {watched ? "Watched" : "Mark watched"}
+                  </button>
+                ) : null}
 
-              {/* A plain anchor so the OS hands magnets to the user's torrent
-                  client, exactly as plan.md asks. */}
-              <a
-                href={ep.magnetUri}
-                className="shrink-0 rounded-lg bg-anilist px-3 py-1.5 text-xs font-semibold text-ink transition hover:brightness-110"
-              >
-                Magnet
-              </a>
+                {/* A plain anchor so the OS hands magnets to the user's torrent
+                    client, exactly as plan.md asks. */}
+                <a
+                  href={ep.magnetUri}
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-anilist px-4 text-xs font-semibold text-ink transition hover:brightness-110 sm:min-h-0 sm:flex-none sm:py-1.5"
+                >
+                  Magnet
+                </a>
+              </div>
             </li>
             );
           })}

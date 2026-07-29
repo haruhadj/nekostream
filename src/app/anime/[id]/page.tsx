@@ -69,7 +69,7 @@ export default async function AnimeDetailPage({
     <>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-4xl px-6 py-10">
+      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
         <Link
           href="/"
           className="text-xs text-muted transition-colors hover:text-cream"

@@ -24,14 +24,26 @@ const PROVIDERS = {
   { label: string; brand: string; onBrand: string; Mark: () => React.ReactNode }
 >;
 
+/**
+ * "signIn" starts a new session; "link" attaches the provider to the session
+ * that already exists. Linking MAL through signIn would match on email — and
+ * since both providers hand out synthesized placeholder emails that never
+ * agree, it silently creates a second, empty user instead of linking.
+ */
+type Mode = "signIn" | "link";
+
 export function OAuthButton({
   provider,
   variant = "primary",
   callbackURL = "/",
+  mode = "signIn",
+  errorCallbackURL,
 }: {
   provider: Provider;
   variant?: "primary" | "secondary";
   callbackURL?: string;
+  mode?: Mode;
+  errorCallbackURL?: string;
 }) {
   const [pending, setPending] = useState(false);
   const { label, brand, onBrand, Mark } = PROVIDERS[provider];
@@ -39,7 +51,15 @@ export function OAuthButton({
   async function connect() {
     setPending(true);
     try {
-      await authClient.signIn.oauth2({ providerId: provider, callbackURL });
+      if (mode === "link") {
+        await authClient.oauth2.link({
+          providerId: provider,
+          callbackURL,
+          errorCallbackURL: errorCallbackURL ?? callbackURL,
+        });
+      } else {
+        await authClient.signIn.oauth2({ providerId: provider, callbackURL });
+      }
     } finally {
       setPending(false);
     }

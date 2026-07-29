@@ -1,0 +1,1 @@
+ALTER TABLE `library_entry` ADD `last_activity_at` integer;

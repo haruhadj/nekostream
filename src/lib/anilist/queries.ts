@@ -81,10 +81,24 @@ export async function mediaById(id: number) {
   return data.Media;
 }
 
+/**
+ * Only the fields the local library actually stores. A full account can carry
+ * several hundred entries, so descriptions, banners and genres are left out —
+ * the detail page fetches those per-anime on demand.
+ */
+type ImportMedia = Pick<
+  AniListMedia,
+  "id" | "idMal" | "title" | "coverImage" | "episodes"
+>;
+
 export type ViewerListEntry = {
   progress: number;
   status: string | null;
-  media: AniListMedia;
+  /** Unix seconds; when the user last changed this entry on AniList. */
+  updatedAt: number | null;
+  /** Unix seconds; when the entry was added to the AniList list. */
+  createdAt: number | null;
+  media: ImportMedia;
 };
 
 /** Used to seed the local library from the user's existing AniList lists. */
@@ -108,7 +122,15 @@ export async function viewerLibrary(accessToken: string) {
            entries {
              progress
              status
-             media { ${MEDIA_FIELDS} }
+             updatedAt
+             createdAt
+             media {
+               id
+               idMal
+               title { romaji english }
+               coverImage { large }
+               episodes
+             }
            }
          }
        }
@@ -117,5 +139,14 @@ export async function viewerLibrary(accessToken: string) {
     { accessToken }
   );
 
-  return data.MediaListCollection.lists.flatMap((list) => list.entries);
+  // AniList returns one list per status, and custom lists can repeat an entry.
+  // Deduplicate on media id so a show in a custom list isn't inserted twice.
+  const byMediaId = new Map<number, ViewerListEntry>();
+  for (const list of data.MediaListCollection.lists) {
+    for (const entry of list.entries) {
+      if (!byMediaId.has(entry.media.id)) byMediaId.set(entry.media.id, entry);
+    }
+  }
+
+  return [...byMediaId.values()];
 }

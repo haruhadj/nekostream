@@ -3,8 +3,11 @@ import { and, asc, desc, eq } from "drizzle-orm";
 import { z } from "zod";
 
 import { db } from "@/db";
-import { episode, libraryEntry, rssFilter } from "@/db/schema";
+import { episode, libraryEntry, rssFilter, user } from "@/db/schema";
+import { AniListError } from "@/lib/anilist/client";
+import { importAniListLibrary } from "@/lib/anilist/import";
 import { auth } from "@/lib/auth";
+import { TokenError } from "@/lib/tokens";
 import { refreshEpisodes } from "@/lib/library/refresh";
 import { syncProgress } from "@/lib/sync/progress";
 import { discoverFilters } from "@/lib/nyaa/discover";
@@ -97,6 +100,46 @@ libraryRoutes.post("/", async (c) => {
   return c.json({ entry, alreadyInLibrary: false }, 201);
 });
 
+/** Skip a re-import when one ran recently, unless the caller forces it. */
+const SYNC_THROTTLE_MS = 5 * 60_000;
+
+/**
+ * Mirrors the user's AniList lists into the local library. The library page
+ * fires this on every visit, so the throttle is what keeps ordinary navigation
+ * from costing an AniList round-trip each time.
+ *
+ * Declared ahead of the "/:id" routes — Hono matches in order, and "/sync"
+ * would otherwise be read as an entry id.
+ */
+libraryRoutes.post("/sync", async (c) => {
+  const userId = c.get("userId");
+  const force = c.req.query("force") === "1";
+
+  const [row] = await db
+    .select({ anilistSyncedAt: user.anilistSyncedAt })
+    .from(user)
+    .where(eq(user.id, userId))
+    .limit(1);
+
+  const lastSync = row?.anilistSyncedAt?.getTime() ?? null;
+
+  if (!force && lastSync !== null && Date.now() - lastSync < SYNC_THROTTLE_MS) {
+    return c.json({ added: 0, skipped: 0, total: 0, throttled: true });
+  }
+
+  try {
+    return c.json({ ...(await importAniListLibrary(userId)), throttled: false });
+  } catch (error) {
+    if (error instanceof TokenError) {
+      return c.json({ error: error.message }, 401);
+    }
+    if (error instanceof AniListError) {
+      return c.json({ error: error.message }, 502);
+    }
+    throw error;
+  }
+});
+
 libraryRoutes.patch("/:id", async (c) => {
   const entry = await findEntry(c.get("userId"), c.req.param("id"));
   if (!entry) return c.json({ error: "Not in your library." }, 404);
@@ -110,7 +153,15 @@ libraryRoutes.patch("/:id", async (c) => {
 
   const [updated] = await db
     .update(libraryEntry)
-    .set({ ...parsed.data, updatedAt: new Date() })
+    .set({
+      ...parsed.data,
+      updatedAt: new Date(),
+      // Watching an episode is activity; flipping a sync toggle is not, and
+      // shouldn't push the entry to the top of the "Last updated" sort.
+      ...(parsed.data.progress !== undefined
+        ? { lastActivityAt: new Date() }
+        : {}),
+    })
     .where(eq(libraryEntry.id, entry.id))
     .returning();
 

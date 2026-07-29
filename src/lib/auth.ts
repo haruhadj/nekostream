@@ -72,6 +72,16 @@ export const auth = betterAuth({
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   emailAndPassword: { enabled: false },
+  account: {
+    accountLinking: {
+      enabled: true,
+      trustedProviders: ["anilist", "mal"],
+      // Neither provider returns a real email, so the two synthesized
+      // placeholders never match. Without this, linking MAL to an AniList
+      // account is rejected and a second, empty user is created instead.
+      allowDifferentEmails: true,
+    },
+  },
   plugins: [
     genericOAuth({
       config: [

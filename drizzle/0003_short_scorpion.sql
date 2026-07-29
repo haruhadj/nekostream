@@ -1,0 +1,1 @@
+ALTER TABLE `library_entry` ADD `anilist_added_at` integer;

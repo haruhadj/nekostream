@@ -14,6 +14,12 @@ export const user = sqliteTable("user", {
     .$defaultFn(() => false)
     .notNull(),
   image: text("image"),
+  /**
+   * Last time the local library was seeded from this user's AniList lists.
+   * Null means never — which is what distinguishes a first-time user from one
+   * whose AniList account is genuinely empty.
+   */
+  anilistSyncedAt: integer("anilist_synced_at", { mode: "timestamp" }),
   createdAt: integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => new Date())
     .notNull(),
@@ -101,6 +107,28 @@ export const libraryEntry = sqliteTable(
     totalEpisodes: integer("total_episodes"),
 
     progress: integer("progress").default(0).notNull(),
+
+    /**
+     * AniList list this entry came from (CURRENT, PLANNING, COMPLETED, DROPPED,
+     * PAUSED, REPEATING). Null for entries added by hand in NekoStream — the
+     * library filter treats those as unclassified rather than guessing.
+     */
+    anilistStatus: text("anilist_status"),
+
+    /**
+     * When this entry was last meaningfully touched — AniList's own MediaList
+     * updatedAt on import, or now() when progress changes here. Distinct from
+     * updatedAt, which moves for any row write (including the bulk import) and
+     * so says nothing about the user's activity.
+     */
+    lastActivityAt: integer("last_activity_at", { mode: "timestamp" }),
+
+    /**
+     * When the entry was added to the AniList list. Distinct from createdAt,
+     * which records when the bulk import wrote the row here and is therefore
+     * identical across the whole library.
+     */
+    anilistAddedAt: integer("anilist_added_at", { mode: "timestamp" }),
 
     // Per-anime sync toggles (plan.md: "Toggle progress sync per-anime")
     syncAnilist: integer("sync_anilist", { mode: "boolean" })

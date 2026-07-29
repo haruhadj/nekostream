@@ -3,75 +3,149 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { asc, eq } from "drizzle-orm";
 
+import { AniListSync } from "@/components/anilist-sync";
+import { LibraryGrid, type LibraryCard } from "@/components/library-grid";
 import { SiteHeader } from "@/components/site-header";
 import { db } from "@/db";
-import { libraryEntry } from "@/db/schema";
+import { libraryEntry, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { DEFAULT_SORT, sortEntries } from "@/lib/library/sort";
 
-export default async function LibraryPage() {
+/**
+ * AniList splits a list per status; "Watching" folds in REPEATING because a
+ * rewatch is still something the user is actively working through.
+ */
+type LibraryFilter = {
+  key: string;
+  label: string;
+  /** Null means "no filter" — the All tab. */
+  match: string[] | null;
+};
+
+const FILTERS: LibraryFilter[] = [
+  { key: "all", label: "All", match: null },
+  { key: "watching", label: "Watching", match: ["CURRENT", "REPEATING"] },
+  { key: "planning", label: "Planning", match: ["PLANNING"] },
+  { key: "completed", label: "Completed", match: ["COMPLETED"] },
+  { key: "paused", label: "Paused", match: ["PAUSED"] },
+  { key: "dropped", label: "Dropped", match: ["DROPPED"] },
+];
+
+export default async function LibraryPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ status?: string }>;
+}) {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const entries = await db
-    .select()
-    .from(libraryEntry)
-    .where(eq(libraryEntry.userId, session.user.id))
-    .orderBy(asc(libraryEntry.titleRomaji));
+  const { status } = await searchParams;
+  const active = FILTERS.find((f) => f.key === status) ?? FILTERS[0];
+
+  const [entries, [account]] = await Promise.all([
+    db
+      .select()
+      .from(libraryEntry)
+      .where(eq(libraryEntry.userId, session.user.id))
+      .orderBy(asc(libraryEntry.titleRomaji)),
+    db
+      .select({ anilistSyncedAt: user.anilistSyncedAt })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1),
+  ]);
+
+  const applyFilter = (filter: LibraryFilter) => {
+    const match = filter.match;
+    if (match === null) return entries;
+    return entries.filter(
+      (e) => e.anilistStatus !== null && match.includes(e.anilistStatus)
+    );
+  };
+
+  // Counts come from the full set so every tab can show its size — the library
+  // is local and small enough that filtering in memory beats six more queries.
+  const countFor = (filter: LibraryFilter) => applyFilter(filter).length;
+
+  // Rendered in the client's default order so the server markup matches what
+  // LibraryGrid shows before it reads the stored preference. Only the fields
+  // the card draws cross to the client — the rest of the row stays here.
+  const visible: LibraryCard[] = sortEntries(
+    applyFilter(active),
+    DEFAULT_SORT
+  ).map((e) => ({
+    id: e.id,
+    titleRomaji: e.titleRomaji,
+    titleEnglish: e.titleEnglish,
+    coverImageUrl: e.coverImageUrl,
+    progress: e.progress,
+    totalEpisodes: e.totalEpisodes,
+    lastActivityAt: e.lastActivityAt,
+    anilistAddedAt: e.anilistAddedAt,
+  }));
+
+  const neverSynced = !account?.anilistSyncedAt;
 
   return (
     <>
       <SiteHeader active="library" />
 
-      <main className="mx-auto w-full max-w-5xl px-6 py-10">
+      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
         <div className="flex items-baseline justify-between gap-4">
           <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
           <p className="text-sm text-muted">
-            {entries.length} {entries.length === 1 ? "title" : "titles"}
+            {visible.length} {visible.length === 1 ? "title" : "titles"}
           </p>
         </div>
 
-        {entries.length === 0 ? (
+        <AniListSync firstRun={neverSynced} />
+
+        {entries.length > 0 ? (
+          <nav className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+            {FILTERS.map((filter) => {
+              const count = countFor(filter);
+              if (count === 0 && filter.key !== "all") return null;
+
+              return (
+                <Link
+                  key={filter.key}
+                  href={filter.key === "all" ? "/" : `/?status=${filter.key}`}
+                  aria-current={filter.key === active.key ? "page" : undefined}
+                  className={[
+                    "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
+                    filter.key === active.key
+                      ? "border-anilist bg-anilist text-ink"
+                      : "border-edge text-muted hover:bg-surface hover:text-cream",
+                  ].join(" ")}
+                >
+                  {filter.label}
+                  <span className="ml-1.5 opacity-60">{count}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        ) : null}
+
+        {visible.length === 0 ? (
           <div className="mt-10 rounded-2xl border border-dashed border-edge p-10 text-center">
             <p className="text-sm text-muted">
-              Nothing here yet. Find an anime and add it to start tracking
-              episodes.
+              {neverSynced
+                ? "Bringing in your AniList list…"
+                : entries.length > 0
+                  ? `Nothing in ${active.label.toLowerCase()}.`
+                  : "Nothing here yet. Find an anime and add it to start tracking episodes."}
             </p>
-            <Link
-              href="/search"
-              className="mt-5 inline-block rounded-xl bg-anilist px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110"
-            >
-              Search anime
-            </Link>
+            {!neverSynced && entries.length === 0 ? (
+              <Link
+                href="/search"
+                className="mt-5 inline-block rounded-xl bg-anilist px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110"
+              >
+                Search anime
+              </Link>
+            ) : null}
           </div>
         ) : (
-          <ul className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
-            {entries.map((entry) => (
-              <li key={entry.id}>
-                <Link href={`/anime/${entry.id}`} className="group block">
-                  <div className="aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
-                    {entry.coverImageUrl ? (
-                      /* AniList CDN images; a plain img avoids remote-host
-                         config for a domain the user can't change. */
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={entry.coverImageUrl}
-                        alt=""
-                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                      />
-                    ) : null}
-                  </div>
-
-                  <p className="mt-3 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
-                    {entry.titleEnglish ?? entry.titleRomaji}
-                  </p>
-                  <p className="mt-1 text-xs text-muted">
-                    {entry.progress}
-                    {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
-                  </p>
-                </Link>
-              </li>
-            ))}
-          </ul>
+          <LibraryGrid entries={visible} />
         )}
       </main>
     </>
