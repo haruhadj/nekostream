@@ -1,0 +1,19 @@
+node_modules
+.next
+.git
+.gitignore
+npm-debug.log
+README.md
+plan.md
+Dockerfile
+.dockerignore
+docker-compose.yml
+
+# Never bake secrets or a local database into the image
+.env
+.env.*
+!.env.example
+*.db
+*.db-journal
+*.db-wal
+*.db-shm

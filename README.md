@@ -1,36 +1,80 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# NekoStream
 
-## Getting Started
+Self-hosted anime tracking. Browse and search via AniList, build episode lists
+from a saved Nyaa.si RSS search, and sync watch progress to AniList and
+MyAnimeList at the same time.
 
-First, run the development server:
+## Requirements
+
+- Docker and Docker Compose (deployment), or Node 22+ (development)
+- OAuth apps registered with AniList and MyAnimeList
+
+## Configuration
+
+Copy `.env.example` to `.env` and fill it in:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env
+openssl rand -base64 32   # BETTER_AUTH_SECRET
+openssl rand -hex 32      # MAL_CODE_VERIFIER
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Register the OAuth apps and set their redirect URLs to match `BETTER_AUTH_URL`:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+| Provider | Console | Redirect URL |
+| --- | --- | --- |
+| AniList | <https://anilist.co/settings/developer> | `$BETTER_AUTH_URL/api/auth/oauth2/callback/anilist` |
+| MyAnimeList | <https://myanimelist.net/apiconfig> | `$BETTER_AUTH_URL/api/auth/oauth2/callback/mal` |
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`BETTER_AUTH_URL` must be the address you actually reach the app on — it forms
+the OAuth redirect URI, so a mismatch fails the sign-in round trip.
 
-## Learn More
+## Deploy
 
-To learn more about Next.js, take a look at the following resources:
+```bash
+docker compose up -d
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Built and verified on arm64 (Raspberry Pi 5). The container runs as a non-root
+user, applies database migrations on every boot, and refuses to start if
+configuration is incomplete.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The SQLite database lives in the `nekostream-data` volume at
+`/data/nekostream.db` — that volume is the thing to back up.
 
-## Deploy on Vercel
+```bash
+docker compose logs -f          # follow logs
+docker compose down             # stop, keeping data
+docker compose down -v          # stop and delete the database
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Development
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+npm install
+npm run db:migrate   # create the local SQLite schema
+npm run dev
+```
+
+| Script | Purpose |
+| --- | --- |
+| `npm run dev` | Development server |
+| `npm run build` | Production build |
+| `npm test` | Unit tests |
+| `npm run typecheck` | TypeScript check |
+| `npm run db:generate` | Generate a migration after changing the schema |
+| `npm run db:migrate` | Apply pending migrations |
+
+## How it works
+
+- **Auth** — better-auth with AniList and MyAnimeList as generic OAuth2
+  providers. AniList sign-in gates the app; MyAnimeList is linked later from
+  Settings. MAL only supports the `plain` PKCE method, so its verifier comes
+  from `MAL_CODE_VERIFIER` rather than better-auth's built-in S256 flow.
+- **Episodes** — each library entry stores a Nyaa search (terms, category,
+  filter). Refreshing re-runs that search as RSS and stores any releases not
+  seen before, so refreshing repeatedly is safe. v1 refreshes on demand only;
+  scheduled polling is deliberately not implemented yet.
+- **Progress** — writes land in the local database first, then push to the
+  enabled trackers independently. One tracker failing never blocks the other or
+  discards the local write.

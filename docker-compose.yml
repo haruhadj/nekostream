@@ -1,0 +1,32 @@
+services:
+  nekostream:
+    build: .
+    image: nekostream:latest
+    container_name: nekostream
+    restart: unless-stopped
+
+    ports:
+      - "${NEKOSTREAM_PORT:-3000}:3000"
+
+    environment:
+      DATABASE_URL: file:/data/nekostream.db
+
+      # Must match how you reach the app, since it forms the OAuth redirect URI.
+      BETTER_AUTH_URL: "${BETTER_AUTH_URL:?set BETTER_AUTH_URL in .env}"
+      # Generate with: openssl rand -base64 32
+      BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}"
+
+      ANILIST_CLIENT_ID: "${ANILIST_CLIENT_ID:?set ANILIST_CLIENT_ID in .env}"
+      ANILIST_CLIENT_SECRET: "${ANILIST_CLIENT_SECRET:?set ANILIST_CLIENT_SECRET in .env}"
+
+      MAL_CLIENT_ID: "${MAL_CLIENT_ID:?set MAL_CLIENT_ID in .env}"
+      MAL_CLIENT_SECRET: "${MAL_CLIENT_SECRET:?set MAL_CLIENT_SECRET in .env}"
+      # Generate with: openssl rand -hex 32
+      MAL_CODE_VERIFIER: "${MAL_CODE_VERIFIER:?set MAL_CODE_VERIFIER in .env}"
+
+    volumes:
+      # The SQLite database lives here — back this up.
+      - nekostream-data:/data
+
+volumes:
+  nekostream-data:

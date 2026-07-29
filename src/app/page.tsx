@@ -1,65 +1,79 @@
-import Image from "next/image";
+import Link from "next/link";
+import { headers } from "next/headers";
+import { redirect } from "next/navigation";
+import { asc, eq } from "drizzle-orm";
 
-export default function Home() {
+import { SiteHeader } from "@/components/site-header";
+import { db } from "@/db";
+import { libraryEntry } from "@/db/schema";
+import { auth } from "@/lib/auth";
+
+export default async function LibraryPage() {
+  const session = await auth.api.getSession({ headers: await headers() });
+  if (!session) redirect("/login");
+
+  const entries = await db
+    .select()
+    .from(libraryEntry)
+    .where(eq(libraryEntry.userId, session.user.id))
+    .orderBy(asc(libraryEntry.titleRomaji));
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <>
+      <SiteHeader active="library" />
+
+      <main className="mx-auto w-full max-w-5xl px-6 py-10">
+        <div className="flex items-baseline justify-between gap-4">
+          <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
+          <p className="text-sm text-muted">
+            {entries.length} {entries.length === 1 ? "title" : "titles"}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        {entries.length === 0 ? (
+          <div className="mt-10 rounded-2xl border border-dashed border-edge p-10 text-center">
+            <p className="text-sm text-muted">
+              Nothing here yet. Find an anime and add it to start tracking
+              episodes.
+            </p>
+            <Link
+              href="/search"
+              className="mt-5 inline-block rounded-xl bg-anilist px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110"
+            >
+              Search anime
+            </Link>
+          </div>
+        ) : (
+          <ul className="mt-8 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+            {entries.map((entry) => (
+              <li key={entry.id}>
+                <Link href={`/anime/${entry.id}`} className="group block">
+                  <div className="aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
+                    {entry.coverImageUrl ? (
+                      /* AniList CDN images; a plain img avoids remote-host
+                         config for a domain the user can't change. */
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.coverImageUrl}
+                        alt=""
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    ) : null}
+                  </div>
+
+                  <p className="mt-3 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
+                    {entry.titleEnglish ?? entry.titleRomaji}
+                  </p>
+                  <p className="mt-1 text-xs text-muted">
+                    {entry.progress}
+                    {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
+                  </p>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        )}
       </main>
-    </div>
+    </>
   );
 }
