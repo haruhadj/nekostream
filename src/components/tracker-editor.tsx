@@ -5,6 +5,12 @@ import { useRouter } from "next/navigation";
 
 type Provider = "anilist" | "mal";
 
+/** "both" edits one set of values and writes it to each tracker in turn. */
+type Target = Provider | "both";
+
+const targetProviders = (target: Target): Provider[] =>
+  target === "both" ? ["anilist", "mal"] : [target];
+
 type Status =
   | "watching"
   | "planning"
@@ -33,6 +39,7 @@ const STATUS_LABELS: { value: Status; label: string }[] = [
 const PROVIDER = {
   anilist: { label: "AniList", accent: "var(--anilist)" },
   mal: { label: "MyAnimeList", accent: "var(--mal)" },
+  both: { label: "Both trackers", accent: "var(--cream)" },
 } as const;
 
 /**
@@ -53,10 +60,15 @@ export function TrackerEditors({
   syncAnilist: boolean;
   syncMal: boolean;
 }) {
-  const [open, setOpen] = useState<Provider | null>(null);
+  const [open, setOpen] = useState<Target | null>(null);
 
   return (
     <div className="flex flex-wrap gap-2">
+      {/* Offered first: keeping the two lists identical is the common case,
+          and doing it here beats editing the same numbers twice. */}
+      {malAvailable ? (
+        <TrackerChip provider="both" onClick={() => setOpen("both")} />
+      ) : null}
       <TrackerChip provider="anilist" onClick={() => setOpen("anilist")} />
       <TrackerChip
         provider="mal"
@@ -67,8 +79,9 @@ export function TrackerEditors({
       {open ? (
         <TrackerDialog
           entryId={entryId}
-          provider={open}
-          autoSync={open === "anilist" ? syncAnilist : syncMal}
+          target={open}
+          syncAnilist={syncAnilist}
+          syncMal={syncMal}
           onClose={() => setOpen(null)}
         />
       ) : null}
@@ -81,7 +94,7 @@ function TrackerChip({
   disabled,
   onClick,
 }: {
-  provider: Provider;
+  provider: Target;
   disabled?: boolean;
   onClick: () => void;
 }) {
@@ -92,7 +105,13 @@ function TrackerChip({
       type="button"
       onClick={onClick}
       disabled={disabled}
-      title={disabled ? "Link MyAnimeList in settings first" : `Edit on ${label}`}
+      title={
+        disabled
+          ? "Link MyAnimeList in settings first"
+          : provider === "both"
+            ? "Edit AniList and MyAnimeList together"
+            : `Edit on ${label}`
+      }
       style={disabled ? undefined : { borderColor: accent }}
       className={[
         "flex items-center gap-2 rounded-full border px-3.5 py-2 text-xs font-medium",
@@ -118,23 +137,35 @@ function TrackerChip({
 
 function TrackerDialog({
   entryId,
-  provider,
-  autoSync,
+  target,
+  syncAnilist,
+  syncMal,
   onClose,
 }: {
   entryId: string;
-  provider: Provider;
-  /** Whether marking episodes here pushes to this tracker automatically. */
-  autoSync: boolean;
+  target: Target;
+  /** Whether marking episodes here pushes to each tracker automatically. */
+  syncAnilist: boolean;
+  syncMal: boolean;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const { label, accent } = PROVIDER[provider];
+  const { label, accent } = PROVIDER[target];
+  const providers = targetProviders(target);
+
+  // "Both trackers" reads fine as a heading but not mid-sentence.
+  const syncLabel =
+    target === "both" ? "AniList and MyAnimeList" : PROVIDER[target].label;
+
+  const autoSync = target === "mal" ? syncMal : target === "anilist" ? syncAnilist : syncAnilist && syncMal;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [entry, setEntry] = useState<TrackerEntry | null>(null);
+  const [entries, setEntries] = useState<Partial<Record<Provider, TrackerEntry>>>(
+    {}
+  );
+  const [failures, setFailures] = useState<Partial<Record<Provider, string>>>({});
   const [form, setForm] = useState({
     progress: 0,
     status: "watching" as Status,
@@ -148,37 +179,58 @@ function TrackerDialog({
     let cancelled = false;
 
     (async () => {
-      try {
-        const res = await fetch(`/api/library/${entryId}/tracker/${provider}`);
-        const json = await res.json();
-        if (cancelled) return;
+      const loaded: Partial<Record<Provider, TrackerEntry>> = {};
+      const errors: Partial<Record<Provider, string>> = {};
 
-        if (!res.ok) {
-          setError(json.error ?? "Could not read this tracker.");
-          setLoading(false);
-          return;
-        }
+      await Promise.all(
+        providers.map(async (p) => {
+          try {
+            const res = await fetch(`/api/library/${entryId}/tracker/${p}`);
+            const json = await res.json();
+            if (res.ok) loaded[p] = json.tracker as TrackerEntry;
+            else errors[p] = json.error ?? "Could not read this tracker.";
+          } catch {
+            errors[p] = "Could not reach the server.";
+          }
+        })
+      );
 
-        const tracker = json.tracker as TrackerEntry;
-        setEntry(tracker);
+      if (cancelled) return;
+
+      setEntries(loaded);
+      setFailures(errors);
+
+      // Seed from whichever tracker is furthest along. Editing both at once is
+      // usually done to bring a lagging list up, and silently proposing the
+      // lower number would quietly undo progress on the other side.
+      const seed = providers
+        .map((p) => loaded[p])
+        .filter((e): e is TrackerEntry => e !== undefined)
+        .sort((a, b) => b.progress - a.progress)[0];
+
+      if (seed) {
         setForm({
-          progress: tracker.progress,
-          status: tracker.status ?? "watching",
-          score: tracker.score,
+          progress: seed.progress,
+          status: seed.status ?? "watching",
+          score: seed.score,
         });
-        setLoading(false);
-      } catch {
-        if (!cancelled) {
-          setError("Could not reach the server.");
-          setLoading(false);
-        }
+      } else if (Object.keys(errors).length === providers.length) {
+        setError(
+          providers.length > 1
+            ? "Could not read either tracker."
+            : (errors[providers[0]] ?? "Could not read this tracker.")
+        );
       }
+
+      setLoading(false);
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [entryId, provider]);
+    // providers is derived from target and stable for a given target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entryId, target]);
 
   // Escape closes, and focus moves into the panel so keyboard users are not
   // left behind on the page underneath.
@@ -201,42 +253,73 @@ function TrackerDialog({
   const save = useCallback(async () => {
     setSaving(true);
     setError(null);
+    setFailures({});
 
-    try {
-      const res = await fetch(`/api/library/${entryId}/tracker/${provider}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
-      });
-      const json = await res.json();
+    // Sequential, not parallel: writing the same values to two APIs is not
+    // worth two concurrent bursts, and ordering makes the failure report
+    // easier to reason about.
+    const errors: Partial<Record<Provider, string>> = {};
 
-      if (!res.ok) {
-        setError(json.error ?? "Could not save.");
-        setSaving(false);
-        return;
-      }
-
-      // The auto-sync flag is local state, not tracker state, so it goes to a
-      // different endpoint — and only when actually changed.
-      if (sync !== autoSync) {
-        await fetch(`/api/library/${entryId}`, {
-          method: "PATCH",
+    for (const p of providers) {
+      try {
+        const res = await fetch(`/api/library/${entryId}/tracker/${p}`, {
+          method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            provider === "anilist" ? { syncAnilist: sync } : { syncMal: sync }
-          ),
+          body: JSON.stringify(form),
         });
+        const json = await res.json();
+        if (!res.ok) errors[p] = json.error ?? "Could not save.";
+      } catch {
+        errors[p] = "Could not reach the server.";
       }
-
-      router.refresh();
-      onClose();
-    } catch {
-      setError("Could not reach the server.");
-      setSaving(false);
     }
-  }, [autoSync, entryId, form, onClose, provider, router, sync]);
 
-  const total = entry?.totalEpisodes ?? null;
+    // One tracker failing must not discard the write that did land, so the
+    // dialog stays open reporting exactly which side is out of step.
+    if (Object.keys(errors).length > 0) {
+      setFailures(errors);
+      setSaving(false);
+      router.refresh();
+      return;
+    }
+
+    // The auto-sync flag is local state, not tracker state, so it goes to a
+    // different endpoint — and only when actually changed.
+    if (sync !== autoSync) {
+      const flags =
+        target === "both"
+          ? { syncAnilist: sync, syncMal: sync }
+          : target === "anilist"
+            ? { syncAnilist: sync }
+            : { syncMal: sync };
+
+      await fetch(`/api/library/${entryId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(flags),
+      }).catch(() => {});
+    }
+
+    router.refresh();
+    onClose();
+    // providers is derived from target.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoSync, entryId, form, onClose, router, sync, target]);
+
+  const total =
+    providers
+      .map((p) => entries[p]?.totalEpisodes)
+      .find((value) => typeof value === "number") ?? null;
+
+  const loadedEntries = providers
+    .map((p) => [p, entries[p]] as const)
+    .filter((pair): pair is [Provider, TrackerEntry] => pair[1] !== undefined);
+
+  const divergent =
+    target === "both" &&
+    loadedEntries.length === 2 &&
+    (loadedEntries[0][1].progress !== loadedEntries[1][1].progress ||
+      loadedEntries[0][1].status !== loadedEntries[1][1].status);
 
   return (
     <div
@@ -276,13 +359,39 @@ function TrackerDialog({
         </div>
 
         {loading ? (
-          <p className="mt-6 text-sm text-muted">Reading {label}…</p>
+          <p className="mt-6 text-sm text-muted">
+            Reading {target === "both" ? "both lists" : label}…
+          </p>
         ) : (
           <>
-            {entry && !entry.exists ? (
-              <p className="mt-4 rounded-lg border border-edge bg-surface/50 px-3 py-2 text-xs text-muted">
-                Not on your {label} list yet — saving adds it.
-              </p>
+            {loadedEntries
+              .filter(([, e]) => !e.exists)
+              .map(([p]) => (
+                <p
+                  key={p}
+                  className="mt-4 rounded-lg border border-edge bg-surface/50 px-3 py-2 text-xs text-muted"
+                >
+                  Not on your {PROVIDER[p].label} list yet — saving adds it.
+                </p>
+              ))}
+
+            {divergent ? (
+              <div className="mt-4 rounded-lg border border-amber-400/40 bg-amber-400/10 px-3 py-2.5">
+                <p className="text-xs font-medium text-amber-300">
+                  The two lists disagree
+                </p>
+                <ul className="mt-1.5 space-y-0.5">
+                  {loadedEntries.map(([p, e]) => (
+                    <li key={p} className="text-[11px] text-muted">
+                      <span className="text-cream">{PROVIDER[p].label}</span>{" "}
+                      {e.progress} ep · {e.status ?? "no status"}
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-1.5 text-[11px] text-muted">
+                  Saving writes the values below to both.
+                </p>
+              </div>
             ) : null}
 
             <div className="mt-5 space-y-5">
@@ -413,8 +522,8 @@ function TrackerDialog({
                   </span>
                   <span className="text-xs leading-snug">
                     {sync
-                      ? `Marking episodes here updates ${label}.`
-                      : `Marking episodes here does not touch ${label}.`}
+                      ? `Marking episodes here updates ${syncLabel}.`
+                      : `Marking episodes here does not touch ${syncLabel}.`}
                   </span>
                 </button>
               </Field>
@@ -424,6 +533,12 @@ function TrackerDialog({
               <p className="mt-4 text-xs text-rose-400">{error}</p>
             ) : null}
 
+            {Object.entries(failures).map(([p, message]) => (
+              <p key={p} className="mt-2 text-xs text-rose-400">
+                {PROVIDER[p as Provider].label}: {message}
+              </p>
+            ))}
+
             <div className="mt-6 flex gap-2">
               <button
                 type="button"
@@ -431,7 +546,11 @@ function TrackerDialog({
                 disabled={saving}
                 className="flex-1 rounded-xl bg-anilist px-4 py-3 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
               >
-                {saving ? "Saving…" : `Save to ${label}`}
+                {saving
+                  ? "Saving…"
+                  : target === "both"
+                    ? "Save to both"
+                    : `Save to ${label}`}
               </button>
               <button
                 type="button"
@@ -443,9 +562,11 @@ function TrackerDialog({
             </div>
 
             <p className="mt-3 text-[11px] leading-relaxed text-muted">
-              {provider === "anilist"
+              {target === "anilist"
                 ? "Writes to AniList and updates the local library."
-                : "Writes to MyAnimeList only — the local library follows AniList."}
+                : target === "mal"
+                  ? "Writes to MyAnimeList only — the local library follows AniList."
+                  : "Writes the same values to AniList and MyAnimeList, and updates the local library."}
             </p>
           </>
         )}
