@@ -150,3 +150,59 @@ export async function viewerLibrary(accessToken: string) {
 
   return [...byMediaId.values()];
 }
+
+export type AiringSchedule = {
+  anilistMediaId: number;
+  /** Null when the show is not currently releasing. */
+  nextAiringAt: Date | null;
+  nextAiringEpisode: number | null;
+};
+
+/** AniList caps Page(media: id_in:) at 50 ids per request. */
+const AIRING_CHUNK = 50;
+
+/**
+ * Broadcast times for a set of anime. Public data, so no access token is
+ * needed — which is what lets the background poller run without a session.
+ * Ids AniList does not return are simply absent from the result.
+ */
+export async function airingSchedules(
+  mediaIds: number[]
+): Promise<AiringSchedule[]> {
+  const schedules: AiringSchedule[] = [];
+
+  for (let i = 0; i < mediaIds.length; i += AIRING_CHUNK) {
+    const ids = mediaIds.slice(i, i + AIRING_CHUNK);
+
+    const data = await anilistRequest<{
+      Page: {
+        media: Array<{
+          id: number;
+          nextAiringEpisode: { episode: number; airingAt: number } | null;
+        }>;
+      };
+    }>(
+      `query ($ids: [Int]) {
+         Page(perPage: ${AIRING_CHUNK}) {
+           media(id_in: $ids, type: ANIME) {
+             id
+             nextAiringEpisode { episode airingAt }
+           }
+         }
+       }`,
+      { ids }
+    );
+
+    for (const media of data.Page.media) {
+      schedules.push({
+        anilistMediaId: media.id,
+        nextAiringAt: media.nextAiringEpisode
+          ? new Date(media.nextAiringEpisode.airingAt * 1000)
+          : null,
+        nextAiringEpisode: media.nextAiringEpisode?.episode ?? null,
+      });
+    }
+  }
+
+  return schedules;
+}

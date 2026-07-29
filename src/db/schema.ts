@@ -130,6 +130,16 @@ export const libraryEntry = sqliteTable(
      */
     anilistAddedAt: integer("anilist_added_at", { mode: "timestamp" }),
 
+    /**
+     * AniList's broadcast schedule for the next episode, refreshed
+     * periodically. Null once a show stops releasing — which is also the signal
+     * to stop polling Nyaa for it. `nextAiringAt` is the air time itself, not
+     * the time a release is expected; see lib/airing/schedule.ts for the lag.
+     */
+    nextAiringAt: integer("next_airing_at", { mode: "timestamp" }),
+    nextAiringEpisode: integer("next_airing_episode"),
+    airingSyncedAt: integer("airing_synced_at", { mode: "timestamp" }),
+
     // Per-anime sync toggles (plan.md: "Toggle progress sync per-anime")
     syncAnilist: integer("sync_anilist", { mode: "boolean" })
       .default(true)
@@ -173,6 +183,16 @@ export const rssFilter = sqliteTable(
     quality: text("quality"),
 
     lastFetchedAt: integer("last_fetched_at", { mode: "timestamp" }),
+
+    /**
+     * Automatic polling state. The poller only touches Nyaa when
+     * `pollNextAt` has passed, and clears it the moment `pollTargetEpisode`
+     * shows up in the feed — so a show sits idle between broadcasts instead of
+     * being polled on a timer. Null `pollNextAt` means dormant.
+     */
+    pollNextAt: integer("poll_next_at", { mode: "timestamp" }),
+    pollTargetEpisode: integer("poll_target_episode"),
+    pollAttempts: integer("poll_attempts").default(0).notNull(),
 
     createdAt: integer("created_at", { mode: "timestamp" })
       .$defaultFn(() => new Date())

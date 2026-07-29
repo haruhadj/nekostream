@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 
+import { AiringCountdown } from "@/components/airing-countdown";
 import { TrackerEditors } from "@/components/tracker-editor";
 import { EpisodeList } from "@/components/episode-list";
 import { NyaaFilterPanel } from "@/components/nyaa-filter-panel";
@@ -104,6 +105,13 @@ export default async function AnimeDetailPage({
 
             {genres.length > 0 ? (
               <p className="mt-2 text-xs text-muted">{genres.join(" · ")}</p>
+            ) : null}
+
+            {entry.nextAiringAt && entry.nextAiringEpisode ? (
+              <AiringCountdown
+                episodeNumber={entry.nextAiringEpisode}
+                airingAt={entry.nextAiringAt.toISOString()}
+              />
             ) : null}
 
             <div className="mt-4 flex flex-col gap-3">
