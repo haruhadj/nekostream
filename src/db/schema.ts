@@ -134,7 +134,7 @@ export const libraryEntry = sqliteTable(
     syncAnilist: integer("sync_anilist", { mode: "boolean" })
       .default(true)
       .notNull(),
-    syncMal: integer("sync_mal", { mode: "boolean" }).default(false).notNull(),
+    syncMal: integer("sync_mal", { mode: "boolean" }).default(true).notNull(),
 
     createdAt: integer("created_at", { mode: "timestamp" })
       .$defaultFn(() => new Date())

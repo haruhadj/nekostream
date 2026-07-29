@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 
@@ -82,7 +83,14 @@ export default async function SettingsPage({
               : "Link MyAnimeList to write progress updates to both lists at once."}
           </p>
 
-          {!malLinked && (
+          {malLinked ? (
+            <Link
+              href="/settings/mirror"
+              className="mt-5 inline-block rounded-xl border border-edge bg-surface/60 px-4 py-2.5 text-sm font-semibold transition hover:border-anilist/60"
+            >
+              Compare both lists →
+            </Link>
+          ) : (
             <div className="mt-5 max-w-xs">
               <OAuthButton
                 provider="mal"

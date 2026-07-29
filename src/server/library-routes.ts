@@ -7,9 +7,19 @@ import { episode, libraryEntry, rssFilter, user } from "@/db/schema";
 import { AniListError } from "@/lib/anilist/client";
 import { importAniListLibrary } from "@/lib/anilist/import";
 import { auth } from "@/lib/auth";
-import { TokenError } from "@/lib/tokens";
+import { getValidAccessToken, TokenError } from "@/lib/tokens";
 import { refreshEpisodes } from "@/lib/library/refresh";
 import { syncProgress } from "@/lib/sync/progress";
+import { MIRROR_TO_ANILIST } from "@/lib/sync/mirror";
+import { MalError } from "@/lib/mal/queries";
+import {
+  deleteAniListEntry,
+  deleteMalEntry,
+  readAniListEntry,
+  readMalEntry,
+  writeAniListEntry,
+  writeMalEntry,
+} from "@/lib/sync/tracker-entry";
 import { discoverFilters } from "@/lib/nyaa/discover";
 import { NyaaFetchError } from "@/lib/nyaa/rss";
 
@@ -276,7 +286,9 @@ libraryRoutes.put("/:id/progress", async (c) => {
 
   const [updated] = await db
     .update(libraryEntry)
-    .set({ progress, updatedAt: new Date() })
+    // lastActivityAt too: this is the main way progress changes, so without it
+    // the "Last updated" sort would never see anything the stepper did.
+    .set({ progress, updatedAt: new Date(), lastActivityAt: new Date() })
     .where(eq(libraryEntry.id, entry.id))
     .returning();
 
@@ -306,4 +318,135 @@ libraryRoutes.get("/:id/episodes", async (c) => {
     .orderBy(desc(episode.episodeNumber), desc(episode.publishedAt));
 
   return c.json({ episodes });
+});
+
+/* ------------------------------------------------------------------ *
+ * Per-tracker list editor
+ *
+ * Reads and writes one tracker's entry for this anime directly, so the user
+ * can override what a tracker holds instead of only pushing progress to it.
+ * ------------------------------------------------------------------ */
+
+const trackerSchema = z.object({
+  progress: z.number().int().min(0).max(10_000),
+  status: z.enum([
+    "watching",
+    "planning",
+    "completed",
+    "dropped",
+    "paused",
+    "repeating",
+  ]),
+  score: z.number().int().min(0).max(10),
+});
+
+const providerParam = z.enum(["anilist", "mal"]);
+
+/** Turns tracker failures into a status the client can act on. */
+function trackerError(error: unknown) {
+  if (error instanceof TokenError) return { message: error.message, status: 401 as const };
+  if (error instanceof MalError) return { message: error.message, status: 502 as const };
+  if (error instanceof AniListError) return { message: error.message, status: 502 as const };
+  return null;
+}
+
+libraryRoutes.get("/:id/tracker/:provider", async (c) => {
+  const userId = c.get("userId");
+  const entry = await findEntry(userId, c.req.param("id"));
+  if (!entry) return c.json({ error: "Not in your library." }, 404);
+
+  const provider = providerParam.safeParse(c.req.param("provider"));
+  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+
+  if (provider.data === "mal" && entry.malMediaId === null) {
+    return c.json({ error: "This title has no MyAnimeList entry." }, 404);
+  }
+
+  try {
+    const token = await getValidAccessToken(userId, provider.data);
+    const tracker =
+      provider.data === "anilist"
+        ? await readAniListEntry(token, entry.anilistMediaId)
+        : await readMalEntry(token, entry.malMediaId!);
+
+    return c.json({ tracker });
+  } catch (error) {
+    const mapped = trackerError(error);
+    if (mapped) return c.json({ error: mapped.message }, mapped.status);
+    throw error;
+  }
+});
+
+libraryRoutes.put("/:id/tracker/:provider", async (c) => {
+  const userId = c.get("userId");
+  const entry = await findEntry(userId, c.req.param("id"));
+  if (!entry) return c.json({ error: "Not in your library." }, 404);
+
+  const provider = providerParam.safeParse(c.req.param("provider"));
+  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+
+  const parsed = trackerSchema.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) {
+    return c.json({ error: "Invalid values.", issues: parsed.error.issues }, 400);
+  }
+
+  if (provider.data === "mal" && entry.malMediaId === null) {
+    return c.json({ error: "This title has no MyAnimeList entry." }, 404);
+  }
+
+  try {
+    const token = await getValidAccessToken(userId, provider.data);
+
+    if (provider.data === "anilist") {
+      await writeAniListEntry(token, entry.anilistMediaId, parsed.data);
+    } else {
+      await writeMalEntry(token, entry.malMediaId!, parsed.data);
+    }
+
+    // The local row mirrors AniList, which is what the library renders from.
+    // A MAL-only edit deliberately leaves it alone rather than letting one
+    // tracker silently redefine local progress.
+    if (provider.data === "anilist") {
+      await db
+        .update(libraryEntry)
+        .set({
+          progress: parsed.data.progress,
+          anilistStatus: MIRROR_TO_ANILIST[parsed.data.status],
+          lastActivityAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(eq(libraryEntry.id, entry.id));
+    }
+
+    return c.json({ ok: true });
+  } catch (error) {
+    const mapped = trackerError(error);
+    if (mapped) return c.json({ error: mapped.message }, mapped.status);
+    throw error;
+  }
+});
+
+libraryRoutes.delete("/:id/tracker/:provider", async (c) => {
+  const userId = c.get("userId");
+  const entry = await findEntry(userId, c.req.param("id"));
+  if (!entry) return c.json({ error: "Not in your library." }, 404);
+
+  const provider = providerParam.safeParse(c.req.param("provider"));
+  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+
+  try {
+    const token = await getValidAccessToken(userId, provider.data);
+
+    if (provider.data === "anilist") {
+      await deleteAniListEntry(token, entry.anilistMediaId);
+    } else if (entry.malMediaId !== null) {
+      await deleteMalEntry(token, entry.malMediaId);
+    }
+
+    return c.json({ ok: true });
+  } catch (error) {
+    const mapped = trackerError(error);
+    if (mapped) return c.json({ error: mapped.message }, mapped.status);
+    throw error;
+  }
 });

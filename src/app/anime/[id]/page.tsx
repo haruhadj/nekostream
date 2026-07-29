@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
 
-import { EntrySettings } from "@/components/entry-settings";
+import { TrackerEditors } from "@/components/tracker-editor";
 import { EpisodeList } from "@/components/episode-list";
 import { NyaaFilterPanel } from "@/components/nyaa-filter-panel";
 import { ProgressControl, ProgressProvider } from "@/components/progress-control";
@@ -108,11 +108,11 @@ export default async function AnimeDetailPage({
 
             <div className="mt-4 flex flex-col gap-3">
               <ProgressControl />
-              <EntrySettings
+              <TrackerEditors
                 entryId={entry.id}
+                malAvailable={malAccounts.length > 0 && entry.malMediaId !== null}
                 syncAnilist={entry.syncAnilist}
                 syncMal={entry.syncMal}
-                malLinked={malAccounts.length > 0}
               />
             </div>
           </div>
