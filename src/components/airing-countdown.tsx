@@ -13,6 +13,65 @@ function formatGap(ms: number) {
   return `${Math.max(minutes, 1)}m`;
 }
 
+/** Just the largest unit — a grid of covers has no room for "2d 4h". */
+function formatGapShort(ms: number) {
+  const minutes = Math.floor(ms / 60_000);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days}d`;
+  if (hours > 0) return `${hours}h`;
+  return `${Math.max(minutes, 1)}m`;
+}
+
+/**
+ * Shared by every countdown: the server cannot render a duration, because
+ * whatever it computes is already stale by the time the page is read. So the
+ * value starts null and is filled in on mount, then refreshed each minute.
+ */
+function useNow() {
+  const [now, setNow] = useState<number | null>(null);
+
+  useEffect(() => {
+    setNow(Date.now());
+    const id = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(id);
+  }, []);
+
+  return now;
+}
+
+/**
+ * The library-card form: a chip on the cover art. Absolutely positioned so
+ * appearing after mount cannot shift the grid.
+ */
+export function AiringBadge({
+  episodeNumber,
+  airingAt,
+}: {
+  episodeNumber: number;
+  airingAt: string;
+}) {
+  const now = useNow();
+  if (now === null) return null;
+
+  const target = new Date(airingAt).getTime();
+  const upcoming = now < target;
+
+  return (
+    <span
+      className={[
+        "absolute bottom-1.5 left-1.5 rounded-md px-1.5 py-0.5",
+        "text-[10px] font-semibold tabular-nums backdrop-blur-sm",
+        upcoming ? "bg-ink/75 text-cream" : "bg-anilist/90 text-ink",
+      ].join(" ")}
+    >
+      EP {episodeNumber}
+      {upcoming ? ` · ${formatGapShort(target - now)}` : " out"}
+    </span>
+  );
+}
+
 export function AiringCountdown({
   episodeNumber,
   airingAt,
@@ -25,16 +84,7 @@ export function AiringCountdown({
   polling: boolean;
 }) {
   const target = new Date(airingAt).getTime();
-
-  // Rendered on the server too, so start from null and fill in after mount:
-  // any "in 2d 4h" computed during SSR is stale by the time it is read.
-  const [now, setNow] = useState<number | null>(null);
-
-  useEffect(() => {
-    setNow(Date.now());
-    const id = setInterval(() => setNow(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
+  const now = useNow();
 
   const label =
     now === null

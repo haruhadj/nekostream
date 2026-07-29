@@ -55,6 +55,11 @@ async function applyPollState(libraryEntryId: string, state: PollState) {
 /**
  * Refresh broadcast times from AniList, and arm or disarm each feed
  * accordingly. Runs at most every SCHEDULE_SYNC_MS.
+ *
+ * This covers the *whole* library, not just entries with a feed: the library
+ * and detail pages show an airing countdown for anything still releasing, and
+ * that should not depend on whether a downloader was ever configured. Arming a
+ * poll is the part that requires a feed.
  */
 async function syncSchedules(now: Date) {
   const stale = new Date(now.getTime() - SCHEDULE_SYNC_MS);
@@ -65,9 +70,10 @@ async function syncSchedules(now: Date) {
       anilistMediaId: libraryEntry.anilistMediaId,
       syncedAt: libraryEntry.airingSyncedAt,
       targetEpisode: rssFilter.pollTargetEpisode,
+      hasFeed: rssFilter.id,
     })
     .from(libraryEntry)
-    .innerJoin(rssFilter, eq(rssFilter.libraryEntryId, libraryEntry.id));
+    .leftJoin(rssFilter, eq(rssFilter.libraryEntryId, libraryEntry.id));
 
   const due = rows.filter((r) => r.syncedAt === null || r.syncedAt < stale);
   if (due.length === 0) return;
@@ -93,6 +99,8 @@ async function syncSchedules(now: Date) {
       })
       .where(eq(libraryEntry.id, row.id));
 
+    if (row.hasFeed === null) continue;
+
     const state = stateForAiring({
       airingAt: schedule.nextAiringAt,
       episode: schedule.nextAiringEpisode,
@@ -105,7 +113,8 @@ async function syncSchedules(now: Date) {
     }
   }
 
-  log(`schedule sync: ${due.length} checked, ${armed} armed`);
+  const airing = schedules.filter((s) => s.nextAiringAt !== null).length;
+  log(`schedule sync: ${due.length} checked, ${airing} airing, ${armed} armed`);
 }
 
 /** Did the feed we just pulled actually contain the episode we are waiting for? */

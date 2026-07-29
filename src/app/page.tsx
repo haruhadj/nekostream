@@ -82,6 +82,8 @@ export default async function LibraryPage({
     totalEpisodes: e.totalEpisodes,
     lastActivityAt: e.lastActivityAt,
     anilistAddedAt: e.anilistAddedAt,
+    nextAiringAt: e.nextAiringAt,
+    nextAiringEpisode: e.nextAiringEpisode,
   }));
 
   const neverSynced = !account?.anilistSyncedAt;

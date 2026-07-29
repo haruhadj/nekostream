@@ -164,6 +164,9 @@ export type AiringSchedule = {
 /** AniList caps Page(media: id_in:) at 50 ids per request. */
 const AIRING_CHUNK = 50;
 
+/** A whole library is many chunks; stay well clear of AniList's rate limit. */
+const AIRING_CHUNK_GAP_MS = 700;
+
 /**
  * Broadcast times for a set of anime. Public data, so no access token is
  * needed — which is what lets the background poller run without a session.
@@ -176,6 +179,10 @@ export async function airingSchedules(
 
   for (let i = 0; i < mediaIds.length; i += AIRING_CHUNK) {
     const ids = mediaIds.slice(i, i + AIRING_CHUNK);
+
+    if (i > 0) {
+      await new Promise((resolve) => setTimeout(resolve, AIRING_CHUNK_GAP_MS));
+    }
 
     const data = await anilistRequest<{
       Page: {

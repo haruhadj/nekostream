@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
+import { AiringBadge } from "@/components/airing-countdown";
+
 import {
   DEFAULT_SORT,
   SORTS,
@@ -20,6 +22,8 @@ export type LibraryCard = {
   totalEpisodes: number | null;
   lastActivityAt: Date | null;
   anilistAddedAt: Date | null;
+  nextAiringAt: Date | null;
+  nextAiringEpisode: number | null;
 };
 
 const STORAGE_KEY = "nekostream:library-sort";
@@ -86,7 +90,7 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
         {sorted.map((entry) => (
           <li key={entry.id}>
             <Link href={`/anime/${entry.id}`} className="group block">
-              <div className="aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
+              <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
                 {entry.coverImageUrl ? (
                   /* AniList CDN images; a plain img avoids remote-host config
                      for a domain the user can't change. */
@@ -96,6 +100,13 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
                     alt=""
                     loading="lazy"
                     className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                  />
+                ) : null}
+
+                {entry.nextAiringAt && entry.nextAiringEpisode ? (
+                  <AiringBadge
+                    episodeNumber={entry.nextAiringEpisode}
+                    airingAt={entry.nextAiringAt.toISOString()}
                   />
                 ) : null}
               </div>
