@@ -36,6 +36,7 @@ const STORAGE_KEY = "nekostream:library-sort";
  */
 export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
@@ -53,10 +54,32 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
 
   const sorted = useMemo(() => sortEntries(entries, sort), [entries, sort]);
 
+  const filtered = useMemo(() => {
+    const trimmed = query.trim().toLowerCase();
+    if (!trimmed) return sorted;
+    return sorted.filter((entry) =>
+      [entry.titleRomaji, entry.titleEnglish]
+        .filter((title): title is string => Boolean(title))
+        .some((title) => title.toLowerCase().includes(trimmed))
+    );
+  }, [sorted, query]);
+
   return (
     <>
-      <div className="mt-5 flex items-center justify-end">
-        <label className="flex items-center gap-2 text-xs text-muted">
+      <div className="mt-5 flex items-center gap-3">
+        <label htmlFor="library-search" className="sr-only">
+          Search library
+        </label>
+        <input
+          id="library-search"
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Filter your library"
+          className="w-full rounded-xl border border-edge bg-surface/60 px-4 py-2.5 text-sm placeholder:text-muted focus:border-anilist focus:outline-none sm:max-w-xs"
+        />
+
+        <label className="ml-auto flex shrink-0 items-center gap-2 text-xs text-muted">
           <span className="shrink-0">Sort</span>
           <span className="relative">
             <select
@@ -86,8 +109,13 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
         </label>
       </div>
 
+      {filtered.length === 0 ? (
+        <p className="mt-10 text-center text-sm text-muted">
+          No titles match &ldquo;{query.trim()}&rdquo;.
+        </p>
+      ) : (
       <ul className="mt-4 grid grid-cols-2 gap-x-4 gap-y-7 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
-        {sorted.map((entry) => (
+        {filtered.map((entry) => (
           <li key={entry.id}>
             <Link href={`/anime/${entry.id}`} className="group block">
               <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
@@ -122,6 +150,7 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
           </li>
         ))}
       </ul>
+      )}
     </>
   );
 }
