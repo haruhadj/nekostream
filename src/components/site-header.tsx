@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { SearchIconPaths } from "@/components/ui/search-icon";
+
 type Tab = "library" | "search" | "settings";
 
 /**
@@ -82,8 +84,7 @@ function TabBar({ active }: { active?: Tab }) {
         </TabLink>
 
         <TabLink href="/search" label="Search" isActive={active === "search"}>
-          <circle cx="11" cy="11" r="6" />
-          <path d="m15.6 15.6 4.4 4.4" strokeLinecap="round" />
+          <SearchIconPaths />
         </TabLink>
 
         <TabLink

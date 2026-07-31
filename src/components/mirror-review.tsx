@@ -352,7 +352,7 @@ function PrimaryButton({
       className={[
         "w-full rounded-xl bg-anilist px-5 py-3 text-sm font-semibold text-ink",
         "transition hover:brightness-110 active:translate-y-px",
-        "focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cream",
+        "focus-ring",
         "disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto",
       ].join(" ")}
     >

@@ -2,25 +2,18 @@
 
 import { useEffect, useState } from "react";
 
-/** Coarse on purpose: "2d 4h" reads better than a ticking clock for a weekly show. */
-function formatGap(ms: number) {
+/**
+ * Coarse on purpose: "2d 4h" reads better than a ticking clock for a weekly
+ * show. Pass `short` where there is only room for the largest unit, as in a
+ * badge over cover art.
+ */
+function formatGap(ms: number, { short = false } = {}) {
   const minutes = Math.floor(ms / 60_000);
   const hours = Math.floor(minutes / 60);
   const days = Math.floor(hours / 24);
 
-  if (days > 0) return `${days}d ${hours % 24}h`;
-  if (hours > 0) return `${hours}h ${minutes % 60}m`;
-  return `${Math.max(minutes, 1)}m`;
-}
-
-/** Just the largest unit — a grid of covers has no room for "2d 4h". */
-function formatGapShort(ms: number) {
-  const minutes = Math.floor(ms / 60_000);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days}d`;
-  if (hours > 0) return `${hours}h`;
+  if (days > 0) return short ? `${days}d` : `${days}d ${hours % 24}h`;
+  if (hours > 0) return short ? `${hours}h` : `${hours}h ${minutes % 60}m`;
   return `${Math.max(minutes, 1)}m`;
 }
 
@@ -72,7 +65,7 @@ export function AiringBadge({
       ].join(" ")}
     >
       EP {episodeNumber}
-      {upcoming ? ` · ${formatGapShort(target - now)}` : " out"}
+      {upcoming ? ` · ${formatGap(target - now, { short: true })}` : " out"}
     </span>
   );
 }

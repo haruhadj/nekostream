@@ -57,6 +57,22 @@ body {
   overscroll-behavior-y: none;
 }
 
+/* The keyboard focus ring, in one place. It was written out at ten call sites
+   with two different offsets, so the ring moved depending on the control. */
+@utility focus-ring {
+  &:focus-visible {
+    outline: 2px solid var(--cream);
+    outline-offset: 2px;
+  }
+}
+
+/* The standard panel: settings sections, the filter cards, the mirror summary. */
+@utility card {
+  border-radius: var(--radius-2xl);
+  border: 1px solid var(--edge);
+  background-color: color-mix(in oklab, var(--surface) 50%, transparent);
+}
+
 /* Horizontal chip rows are swiped on a phone; the scrollbar is just noise. */
 .no-scrollbar {
   scrollbar-width: none;

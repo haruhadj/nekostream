@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { AnimeGrid, AnimePoster, AnimeTitle } from "@/components/ui/anime-grid";
+import { Sheet, SheetGrabHandle } from "@/components/ui/sheet";
 import { apiRequest, apiSend } from "@/lib/client/request";
 
 import type { AniListMedia } from "@/lib/anilist/queries";
@@ -27,15 +29,6 @@ export function SearchBrowser({
   const [inLibrary, setInLibrary] = useState(() => new Set(libraryMediaIds));
   const [addStates, setAddStates] = useState<Record<number, AddState>>({});
   const [preview, setPreview] = useState<AniListMedia | null>(null);
-
-  useEffect(() => {
-    if (!preview) return;
-    function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") setPreview(null);
-    }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [preview]);
 
   // Debounced so typing doesn't fire a request per keystroke.
   useEffect(() => {
@@ -117,7 +110,7 @@ export function SearchBrowser({
         )}
       </p>
 
-      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
+      <AnimeGrid>
         {media.map((item) => {
           const added = inLibrary.has(item.id);
           const state = addStates[item.id] ?? "idle";
@@ -129,26 +122,17 @@ export function SearchBrowser({
                 onClick={() => setPreview(item)}
                 className="group block w-full text-left transition active:scale-[0.97]"
               >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
-                  {item.coverImage?.large ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={item.coverImage.large}
-                      alt=""
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : null}
-
+                <AnimePoster coverImageUrl={item.coverImage?.large}>
                   {added ? (
                     <span className="absolute right-2 top-2 rounded-full bg-anilist px-2 py-0.5 text-[10px] font-semibold text-ink">
                       In library
                     </span>
                   ) : null}
-                </div>
+                </AnimePoster>
 
-                <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
+                <AnimeTitle>
                   {item.title.english ?? item.title.romaji}
-                </p>
+                </AnimeTitle>
                 <p className="mt-1 text-xs text-muted">
                   {[item.format, item.seasonYear].filter(Boolean).join(" · ")}
                 </p>
@@ -160,7 +144,7 @@ export function SearchBrowser({
                 disabled={added || state === "adding"}
                 className={[
                   "mt-2 min-h-10 w-full rounded-full px-3 text-xs font-semibold transition",
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
+                  "focus-ring",
                   added
                     ? "cursor-default border border-edge text-muted"
                     : "bg-anilist text-ink hover:brightness-110 active:scale-[0.97] disabled:opacity-60",
@@ -171,7 +155,7 @@ export function SearchBrowser({
             </li>
           );
         })}
-      </ul>
+      </AnimeGrid>
 
       {media.length === 0 && !isSearching ? (
         <p className="mt-10 text-center text-sm text-muted">
@@ -182,103 +166,91 @@ export function SearchBrowser({
       {preview ? (
         // A sheet rising from the bottom edge on phones, a centred dialog once
         // there is room — the same markup, different anchoring.
-        <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
-          onClick={() => setPreview(null)}
+        <Sheet
+          label={preview.title.english ?? preview.title.romaji}
+          onClose={() => setPreview(null)}
+          panelClassName={[
+            "flex w-full max-w-xl flex-col gap-5 overflow-y-auto border border-edge bg-surface",
+            "max-h-[88vh] rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
+            "sm:max-h-[85vh] sm:flex-row sm:rounded-2xl sm:p-6 sm:pb-6",
+          ].join(" ")}
         >
-          <div
-            role="dialog"
-            aria-modal="true"
-            onClick={(e) => e.stopPropagation()}
-            className={[
-              "flex w-full max-w-xl flex-col gap-5 overflow-y-auto border border-edge bg-surface",
-              "max-h-[88vh] rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
-              "sm:max-h-[85vh] sm:flex-row sm:rounded-2xl sm:p-6 sm:pb-6",
-            ].join(" ")}
-          >
-            {/* Grab handle — the affordance that says "swipe or tap away". */}
-            <span
-              aria-hidden="true"
-              className="mx-auto -mt-1 h-1 w-10 shrink-0 rounded-full bg-edge sm:hidden"
-            />
+          <SheetGrabHandle />
 
-            <div className="mx-auto w-28 shrink-0 overflow-hidden rounded-xl border border-edge bg-ink sm:mx-0 sm:w-40">
-              {preview.coverImage?.large ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={preview.coverImage.large}
-                  alt=""
-                  className="aspect-[2/3] w-full object-cover"
-                />
-              ) : null}
-            </div>
+          <div className="mx-auto w-28 shrink-0 overflow-hidden rounded-xl border border-edge bg-ink sm:mx-0 sm:w-40">
+            {preview.coverImage?.large ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={preview.coverImage.large}
+                alt=""
+                className="aspect-[2/3] w-full object-cover"
+              />
+            ) : null}
+          </div>
 
-            <div className="min-w-0 flex-1">
-              <div className="flex items-start justify-between gap-3">
-                <h2 className="text-lg font-semibold leading-tight text-balance">
-                  {preview.title.english ?? preview.title.romaji}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => setPreview(null)}
-                  aria-label="Close"
-                  className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/40 hover:text-cream"
-                >
-                  ✕
-                </button>
-              </div>
-              {preview.title.english ? (
-                <p className="mt-1 text-sm text-muted">
-                  {preview.title.romaji}
-                </p>
-              ) : null}
-
-              <p className="mt-2 text-xs text-muted">
-                {[
-                  preview.format,
-                  preview.seasonYear,
-                  preview.episodes ? `${preview.episodes} ep` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")}
-              </p>
-
-              {preview.genres.length > 0 ? (
-                <p className="mt-2 text-xs text-muted">
-                  {preview.genres.join(" · ")}
-                </p>
-              ) : null}
-
-              {preview.description ? (
-                <p className="mt-4 line-clamp-[8] text-sm leading-relaxed text-muted">
-                  {stripHtml(preview.description)}
-                </p>
-              ) : null}
-
+          <div className="min-w-0 flex-1">
+            <div className="flex items-start justify-between gap-3">
+              <h2 className="text-lg font-semibold leading-tight text-balance">
+                {preview.title.english ?? preview.title.romaji}
+              </h2>
               <button
                 type="button"
-                onClick={() => addToLibrary(preview)}
-                disabled={
-                  inLibrary.has(preview.id) ||
-                  (addStates[preview.id] ?? "idle") === "adding"
-                }
-                className={[
-                  "mt-5 min-h-12 w-full rounded-full px-5 text-sm font-semibold transition sm:min-h-0 sm:w-auto sm:py-2",
-                  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
-                  inLibrary.has(preview.id)
-                    ? "cursor-default border border-edge text-muted"
-                    : "bg-anilist text-ink hover:brightness-110 disabled:opacity-60",
-                ].join(" ")}
+                onClick={() => setPreview(null)}
+                aria-label="Close"
+                className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/40 hover:text-cream"
               >
-                {inLibrary.has(preview.id)
-                  ? "In library"
-                  : (addStates[preview.id] ?? "idle") === "adding"
-                    ? "Adding…"
-                    : "Add to library"}
+                ✕
               </button>
             </div>
+            {preview.title.english ? (
+              <p className="mt-1 text-sm text-muted">{preview.title.romaji}</p>
+            ) : null}
+
+            <p className="mt-2 text-xs text-muted">
+              {[
+                preview.format,
+                preview.seasonYear,
+                preview.episodes ? `${preview.episodes} ep` : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")}
+            </p>
+
+            {preview.genres.length > 0 ? (
+              <p className="mt-2 text-xs text-muted">
+                {preview.genres.join(" · ")}
+              </p>
+            ) : null}
+
+            {preview.description ? (
+              <p className="mt-4 line-clamp-[8] text-sm leading-relaxed text-muted">
+                {stripHtml(preview.description)}
+              </p>
+            ) : null}
+
+            <button
+              type="button"
+              onClick={() => addToLibrary(preview)}
+              disabled={
+                inLibrary.has(preview.id) ||
+                (addStates[preview.id] ?? "idle") === "adding"
+              }
+              className={[
+                "mt-5 min-h-12 w-full rounded-full px-5 text-sm font-semibold transition sm:min-h-0 sm:w-auto sm:py-2",
+                "focus-ring",
+                inLibrary.has(preview.id)
+                  ? "cursor-default border border-edge text-muted"
+                  : "bg-anilist text-ink hover:brightness-110 disabled:opacity-60",
+              ].join(" ")}
+            >
+              {inLibrary.has(preview.id)
+                ? "In library"
+                : (addStates[preview.id] ?? "idle") === "adding"
+                  ? "Adding…"
+                  : "Add to library"}
+            </button>
           </div>
-        </div>
+        </Sheet>
       ) : null}
     </div>
   );

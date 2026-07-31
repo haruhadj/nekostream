@@ -175,7 +175,7 @@ function StepButton({
       disabled={disabled}
       onClick={onClick}
       // 44px on touch, back to a compact 28px once there is a pointer.
-      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
+      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-ring disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
     >
       {children}
     </button>

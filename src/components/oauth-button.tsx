@@ -80,7 +80,7 @@ export function OAuthButton({
         "group relative flex w-full items-center justify-center gap-3",
         "rounded-xl px-5 py-3.5 text-[15px] font-semibold tracking-tight",
         "transition duration-200 ease-out",
-        "focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cream",
+        "focus-ring",
         "disabled:cursor-wait disabled:opacity-60",
         primary
           ? "shadow-[0_1px_0_rgba(255,255,255,0.25)_inset,0_10px_30px_-12px_var(--anilist)] hover:brightness-110 active:translate-y-px"

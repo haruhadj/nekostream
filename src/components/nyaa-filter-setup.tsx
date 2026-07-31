@@ -121,7 +121,7 @@ export function NyaaFilterSetup({
   }
 
   return (
-    <section className="rounded-2xl border border-edge bg-surface/50 p-6">
+    <section className="card p-6">
       <h2 className="text-sm font-semibold">Nyaa feed</h2>
       <p className="mt-2 text-sm leading-relaxed text-muted">
         Pick a release group and quality. The episode list is built from this
@@ -228,7 +228,7 @@ function Picker({
               onClick={() => onSelect(isSelected ? null : option)}
               className={[
                 "rounded-full px-3 py-1.5 text-xs font-medium transition",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
+                "focus-ring",
                 isSelected
                   ? "bg-anilist text-ink"
                   : "border border-edge text-cream hover:bg-surface",
