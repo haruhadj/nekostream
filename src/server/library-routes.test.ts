@@ -10,34 +10,14 @@ import assert from "node:assert/strict";
 
 import { stubDb } from "../lib/test-support/db-stub.ts";
 
+import { AniListError } from "../lib/anilist/client.ts";
+import { MalError } from "../lib/mal/client.ts";
+import { TokenError } from "../lib/tokens.ts";
+
 const AUTH = new URL("../lib/auth.ts", import.meta.url).href;
 const DB = new URL("../db/index.ts", import.meta.url).href;
 const TOKENS = new URL("../lib/tokens.ts", import.meta.url).href;
 const TRACKER = new URL("../lib/sync/tracker-entry.ts", import.meta.url).href;
-const ANILIST = new URL("../lib/anilist/client.ts", import.meta.url).href;
-const MAL = new URL("../lib/mal/client.ts", import.meta.url).href;
-
-class TokenError extends Error {
-  provider: string;
-  constructor(message: string, provider = "anilist") {
-    super(message);
-    this.provider = provider;
-  }
-}
-class MalError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-class AniListError extends Error {
-  status: number;
-  constructor(message: string, { status = 500 } = {}) {
-    super(message);
-    this.status = status;
-  }
-}
 
 const ENTRY = {
   id: "entry-1",
@@ -55,19 +35,44 @@ type Options = {
   trackerThrows?: unknown;
 };
 
-async function loadRoutes({
-  session = { user: { id: "user-1" } },
-  rows = [],
-  trackerThrows,
-}: Options = {}) {
+/**
+ * Per-test state the mocks read at call time.
+ *
+ * The mocks are registered exactly once. Re-registering them per test does not
+ * work: a module is evaluated on first import and then cached, so a later
+ * mock.module for the same URL never takes effect and every test after the
+ * first silently reuses the first one's stubs.
+ */
+let state: Required<Options> = {
+  session: null,
+  rows: [],
+  trackerThrows: undefined,
+};
+
+let registered = false;
+
+function registerMocks() {
+  if (registered) return;
+  registered = true;
+
   mock.module(AUTH, {
     namedExports: {
-      auth: { api: { getSession: () => Promise.resolve(session) } },
+      auth: { api: { getSession: () => Promise.resolve(state.session) } },
     },
   });
 
-  mock.module(DB, { namedExports: { db: stubDb(rows).db } });
+  // A fresh result queue per test, since a query builder is consumed as it runs.
+  mock.module(DB, {
+    namedExports: {
+      db: new Proxy({} as Record<string, unknown>, {
+        get: (_t, property) =>
+          (stubDb(state.rows).db as Record<string | symbol, unknown>)[property],
+      }),
+    },
+  });
 
+  // Only the database-backed token lookup is replaced; TokenError itself is
+  // the real class, so the route's `instanceof` checks are the real ones.
   mock.module(TOKENS, {
     namedExports: {
       TokenError,
@@ -75,16 +80,10 @@ async function loadRoutes({
     },
   });
 
-  mock.module(MAL, { namedExports: { MalError } });
-  mock.module(ANILIST, {
-    namedExports: {
-      AniListError,
-      anilistRequest: () => Promise.resolve({}),
-    },
-  });
-
   const reject = () =>
-    trackerThrows ? Promise.reject(trackerThrows) : Promise.resolve({});
+    state.trackerThrows
+      ? Promise.reject(state.trackerThrows)
+      : Promise.resolve({});
 
   mock.module(TRACKER, {
     namedExports: {
@@ -96,6 +95,15 @@ async function loadRoutes({
       deleteMalEntry: reject,
     },
   });
+}
+
+async function loadRoutes({
+  session = { user: { id: "user-1" } },
+  rows = [],
+  trackerThrows,
+}: Options = {}) {
+  state = { session, rows, trackerThrows };
+  registerMocks();
 
   const module = await import(
     `./library-routes.ts?t=${Date.now()}${Math.random()}`
@@ -128,7 +136,7 @@ test("a signed-out request is rejected before any handler runs", async () => {
       error: "Sign in with AniList first.",
     });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -142,7 +150,7 @@ test("an id belonging to another account reads as absent, not forbidden", async 
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), { error: "Not in your library." });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -155,7 +163,7 @@ test("an unrecognised tracker name is a 404", async () => {
     assert.equal(response.status, 404);
     assert.deepEqual(await response.json(), { error: "Unknown tracker." });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -170,7 +178,7 @@ test("a MyAnimeList read on a title with no MAL id is a 404", async () => {
       error: "This title has no MyAnimeList entry.",
     });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -192,7 +200,7 @@ test("an invalid tracker body is a 400 carrying the validation issues", async ()
     assert.equal(body.error, "Invalid values.");
     assert.ok(body.issues.length > 0);
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -207,14 +215,14 @@ test("a malformed JSON body is a 400 rather than a crash", async () => {
 
     assert.equal(response.status, 400);
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
 test("an expired tracker token becomes a 401 the client can act on", async () => {
   const routes = await loadRoutes({
     rows: [[ENTRY]],
-    trackerThrows: new TokenError("Reconnect your AniList account.", "anilist"),
+    trackerThrows: new TokenError("anilist", "Reconnect your AniList account."),
   });
 
   try {
@@ -224,11 +232,13 @@ test("an expired tracker token becomes a 401 the client can act on", async () =>
     );
 
     assert.equal(response.status, 401);
+    // The provider is the actionable part: it says which account to relink.
     assert.deepEqual(await response.json(), {
       error: "Reconnect your AniList account.",
+      provider: "anilist",
     });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -249,7 +259,7 @@ test("a MyAnimeList outage becomes a 502, not a 500", async () => {
       error: "MyAnimeList returned 503",
     });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -268,7 +278,7 @@ test("an AniList outage becomes a 502", async () => {
     assert.equal(response.status, 502);
     assert.deepEqual(await response.json(), { error: "AniList returned 500." });
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });
 
@@ -287,6 +297,6 @@ test("an unexpected error is not swallowed into a tracker status", async () => {
     // Rethrown, so Hono's own handler turns it into a 500.
     assert.equal(response.status, 500);
   } finally {
-    mock.reset();
+    state.trackerThrows = undefined;
   }
 });

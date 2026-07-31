@@ -12,6 +12,7 @@ import assert from "node:assert/strict";
 
 import { stubDb } from "../lib/test-support/db-stub.ts";
 import { stubFetch } from "../lib/test-support/fetch-stub.ts";
+import { TokenError } from "../lib/tokens.ts";
 
 const AUTH = new URL("../lib/auth.ts", import.meta.url).href;
 const DB = new URL("../db/index.ts", import.meta.url).href;
@@ -20,13 +21,6 @@ const ANILIST_QUERIES = new URL("../lib/anilist/queries.ts", import.meta.url)
   .href;
 const MAL_QUERIES = new URL("../lib/mal/queries.ts", import.meta.url).href;
 
-class TokenError extends Error {
-  provider: string;
-  constructor(message: string, provider = "mal") {
-    super(message);
-    this.provider = provider;
-  }
-}
 /** One anime, further along on AniList than on MyAnimeList. */
 const ANILIST_ENTRY = {
   media: {
@@ -54,13 +48,21 @@ type Options = {
   tokenError?: unknown;
 };
 
-async function loadRoutes({
-  session = { user: { id: "user-1" } },
-  tokenError,
-}: Options = {}) {
+/**
+ * Per-test state the mocks read at call time. Registered once, because a module
+ * is evaluated on first import and cached — a second mock.module for the same
+ * URL never takes effect.
+ */
+let state: Required<Options> = { session: null, tokenError: undefined };
+let registered = false;
+
+function registerMocks() {
+  if (registered) return;
+  registered = true;
+
   mock.module(AUTH, {
     namedExports: {
-      auth: { api: { getSession: () => Promise.resolve(session) } },
+      auth: { api: { getSession: () => Promise.resolve(state.session) } },
     },
   });
 
@@ -70,8 +72,8 @@ async function loadRoutes({
     namedExports: {
       TokenError,
       getValidAccessToken: (_userId: string, provider: string) =>
-        tokenError
-          ? Promise.reject(tokenError)
+        state.tokenError
+          ? Promise.reject(state.tokenError)
           : Promise.resolve(`${provider}-token`),
     },
   });
@@ -85,6 +87,14 @@ async function loadRoutes({
   mock.module(MAL_QUERIES, {
     namedExports: { viewerMalList: () => Promise.resolve([MAL_ENTRY]) },
   });
+}
+
+async function loadRoutes({
+  session = { user: { id: "user-1" } },
+  tokenError,
+}: Options = {}) {
+  state = { session, tokenError };
+  registerMocks();
 
   const module = await import(
     `./mirror-routes.ts?t=${Date.now()}${Math.random()}`
@@ -111,7 +121,7 @@ test("a signed-out request cannot reach the mirror", async () => {
       error: "Sign in with AniList first.",
     });
   } finally {
-    mock.reset();
+    state.tokenError = undefined;
   }
 });
 
@@ -138,7 +148,7 @@ test("the dry run reports the disagreement without writing anything", async () =
     assert.equal(fetch.calls.length, 0, "a dry run must not write");
   } finally {
     fetch.restore();
-    mock.reset();
+    state.tokenError = undefined;
   }
 });
 
@@ -167,7 +177,7 @@ test("a mirror write carries progress and status but never a score", async () =>
     });
   } finally {
     fetch.restore();
-    mock.reset();
+    state.tokenError = undefined;
   }
 });
 
@@ -185,7 +195,7 @@ test("an unknown decision key is ignored rather than erroring", async () => {
     assert.equal(fetch.calls.length, 0);
   } finally {
     fetch.restore();
-    mock.reset();
+    state.tokenError = undefined;
   }
 });
 
@@ -204,13 +214,13 @@ test("an empty decision list is rejected as a 400", async () => {
       "Invalid decisions."
     );
   } finally {
-    mock.reset();
+    state.tokenError = undefined;
   }
 });
 
 test("a token failure reports which provider needs relinking", async () => {
   const routes = await loadRoutes({
-    tokenError: new TokenError("Reconnect your MyAnimeList account.", "mal"),
+    tokenError: new TokenError("mal", "Reconnect your MyAnimeList account."),
   });
 
   try {
@@ -222,6 +232,6 @@ test("a token failure reports which provider needs relinking", async () => {
       provider: "mal",
     });
   } finally {
-    mock.reset();
+    state.tokenError = undefined;
   }
 });

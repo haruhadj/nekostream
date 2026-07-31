@@ -9,8 +9,7 @@ import { formatBytes } from "@/lib/format";
 import { applyFilter, FILTERS } from "@/lib/library/filters";
 import { DEFAULT_SORT, SORTS, sortEntries } from "@/lib/library/sort";
 import { TRACKERS } from "@/lib/nyaa/rss";
-
-type Env = { Variables: { userId: string } };
+import { findEntry, type Env } from "@/server/shared";
 
 /** Our own id namespace, so Stremio routes meta/stream requests back to us. */
 const ID_PREFIX = "nekostream:";
@@ -223,16 +222,6 @@ function parseId(raw: string) {
   if (episodeNumber !== null && !Number.isInteger(episodeNumber)) return null;
 
   return { entryId, episodeNumber };
-}
-
-/** Scoped by userId so one token can never reach another user's library. */
-async function findEntry(userId: string, entryId: string) {
-  const [entry] = await db
-    .select()
-    .from(libraryEntry)
-    .where(and(eq(libraryEntry.id, entryId), eq(libraryEntry.userId, userId)))
-    .limit(1);
-  return entry ?? null;
 }
 
 stremioRoutes.get("/:token/meta/series/:id", async (c) => {

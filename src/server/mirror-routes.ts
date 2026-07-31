@@ -4,10 +4,8 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { libraryEntry } from "@/db/schema";
-import { anilistRequest, AniListError } from "@/lib/anilist/client";
+import { anilistRequest } from "@/lib/anilist/client";
 import { viewerLibrary } from "@/lib/anilist/queries";
-import { auth } from "@/lib/auth";
-import { MalError } from "@/lib/mal/client";
 import { viewerMalList } from "@/lib/mal/queries";
 import {
   buildMirrorPlan,
@@ -23,18 +21,18 @@ import {
   writeMalEntry,
   type TrackerWrite,
 } from "@/lib/sync/tracker-entry";
-import { getValidAccessToken, TokenError } from "@/lib/tokens";
-
-type Env = { Variables: { userId: string } };
+import { getValidAccessToken } from "@/lib/tokens";
+import {
+  handleUpstreamErrors,
+  parseBody,
+  requireSession,
+  type Env,
+} from "@/server/shared";
 
 export const mirrorRoutes = new Hono<Env>();
 
-mirrorRoutes.use("*", async (c, next) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Sign in with AniList first." }, 401);
-  c.set("userId", session.user.id);
-  await next();
-});
+mirrorRoutes.use("*", requireSession);
+mirrorRoutes.onError(handleUpstreamErrors);
 
 /** Fetches both lists and pairs them. Reads only — writes nothing anywhere. */
 async function loadPlan(userId: string) {
@@ -70,35 +68,12 @@ async function loadPlan(userId: string) {
   return buildMirrorPlan(anilistItems, malItems);
 }
 
-function errorResponse(error: unknown) {
-  if (error instanceof TokenError) {
-    return {
-      body: { error: error.message, provider: error.provider },
-      status: 401 as const,
-    };
-  }
-  if (error instanceof MalError) {
-    return { body: { error: error.message }, status: 502 as const };
-  }
-  if (error instanceof AniListError) {
-    return { body: { error: error.message }, status: 502 as const };
-  }
-  return null;
-}
-
 /**
  * The dry run. Reports every disagreement between the two lists and what each
  * would become, without touching either account.
  */
 mirrorRoutes.get("/", async (c) => {
-  try {
-    const plan = await loadPlan(c.get("userId"));
-    return c.json(plan);
-  } catch (error) {
-    const mapped = errorResponse(error);
-    if (mapped) return c.json(mapped.body, mapped.status);
-    throw error;
-  }
+  return c.json(await loadPlan(c.get("userId")));
 });
 
 const applySchema = z.object({
@@ -148,31 +123,16 @@ async function anilistIdForMal(malMediaId: number): Promise<number | null> {
  * only says which side wins for which title.
  */
 mirrorRoutes.post("/apply", async (c) => {
-  const parsed = applySchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
-    return c.json(
-      { error: "Invalid decisions.", issues: parsed.error.issues },
-      400
-    );
-  }
+  const data = await parseBody(c, applySchema, "Invalid decisions.");
 
   const userId = c.get("userId");
-  const chosen = new Map(parsed.data.decisions.map((d) => [d.key, d.side]));
+  const chosen = new Map(data.decisions.map((d) => [d.key, d.side]));
 
-  let plan;
-  let anilistToken;
-  let malToken;
-  try {
-    [anilistToken, malToken] = await Promise.all([
-      getValidAccessToken(userId, "anilist"),
-      getValidAccessToken(userId, "mal"),
-    ]);
-    plan = await loadPlan(userId);
-  } catch (error) {
-    const mapped = errorResponse(error);
-    if (mapped) return c.json(mapped.body, mapped.status);
-    throw error;
-  }
+  const [anilistToken, malToken] = await Promise.all([
+    getValidAccessToken(userId, "anilist"),
+    getValidAccessToken(userId, "mal"),
+  ]);
+  const plan = await loadPlan(userId);
 
   const results: Array<{
     key: string;

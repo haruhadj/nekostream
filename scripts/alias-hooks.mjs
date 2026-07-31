@@ -22,7 +22,10 @@ export function resolve(specifier, context, nextResolve) {
   for (const extension of EXTENSIONS) {
     const candidate = base + extension;
     if (existsSync(candidate)) {
-      return { url: pathToFileURL(candidate).href, shortCircuit: true };
+      // Delegated rather than short-circuited, so hooks registered later --
+      // notably node:test's module mocking -- still get to see the resolved
+      // module and substitute it.
+      return nextResolve(pathToFileURL(candidate).href, context);
     }
   }
 
