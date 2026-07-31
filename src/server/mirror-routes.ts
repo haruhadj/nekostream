@@ -14,6 +14,7 @@ import {
   type AniListItem,
   type MalItem,
   type MirrorRow,
+  type Side,
 } from "@/lib/sync/mirror";
 import {
   writeAniListEntry,
@@ -95,7 +96,7 @@ const applySchema = z.object({
  * Score is deliberately absent: the user is reconciling progress and status,
  * not rating anything, so the losing side keeps its own rating.
  */
-function resolve(row: MirrorRow, side: "anilist" | "mal"): TrackerWrite | null {
+function resolve(row: MirrorRow, side: Side): TrackerWrite | null {
   const source = side === "anilist" ? row.anilist : row.mal;
   if (!source || source.status === null) return null;
 
@@ -112,6 +113,88 @@ async function anilistIdForMal(malMediaId: number): Promise<number | null> {
     { idMal: malMediaId }
   );
   return data.Media?.id ?? null;
+}
+
+type RowResult = {
+  key: string;
+  title: string;
+  ok: boolean;
+  /** Which trackers were actually written before any failure. */
+  wrote: Side[];
+  error?: string;
+};
+
+/**
+ * Writes one row's chosen values to the losing tracker.
+ *
+ * Never throws: a failure on one title must not abandon the rest of the run,
+ * so it is reported as that row's result instead.
+ */
+async function applyRow(
+  row: MirrorRow,
+  side: Side,
+  tokens: { userId: string; anilistToken: string; malToken: string }
+): Promise<RowResult> {
+  const { key, title } = row;
+
+  const target = resolve(row, side);
+  // The chosen side no longer has data — the list changed between the dry run
+  // and now. Skipping is the only safe move.
+  if (!target) {
+    return {
+      key,
+      title,
+      ok: false,
+      wrote: [],
+      error: "This title changed since the dry run. Re-run it.",
+    };
+  }
+
+  const wrote: Side[] = [];
+
+  try {
+    if (side === "anilist") {
+      if (row.malMediaId === null) throw new Error("No MyAnimeList id.");
+      await writeMalEntry(tokens.malToken, row.malMediaId, target);
+      wrote.push("mal");
+    } else {
+      const mediaId =
+        row.anilistMediaId ??
+        (row.malMediaId !== null
+          ? await anilistIdForMal(row.malMediaId)
+          : null);
+      if (mediaId === null) throw new Error("No matching AniList entry.");
+
+      await writeAniListEntry(tokens.anilistToken, mediaId, target);
+      wrote.push("anilist");
+
+      // Keep the local copy in step so the library reflects the new value
+      // without waiting for the next import.
+      await db
+        .update(libraryEntry)
+        .set({
+          progress: target.progress,
+          lastActivityAt: new Date(),
+          updatedAt: new Date(),
+        })
+        .where(
+          and(
+            eq(libraryEntry.userId, tokens.userId),
+            eq(libraryEntry.anilistMediaId, mediaId)
+          )
+        );
+    }
+
+    return { key, title, ok: true, wrote };
+  } catch (error) {
+    return {
+      key,
+      title,
+      ok: false,
+      wrote,
+      error: error instanceof Error ? error.message : "Write failed.",
+    };
+  }
 }
 
 /**
@@ -133,76 +216,13 @@ mirrorRoutes.post("/apply", async (c) => {
   ]);
   const plan = await loadPlan(userId);
 
-  const results: Array<{
-    key: string;
-    title: string;
-    ok: boolean;
-    wrote: ("anilist" | "mal")[];
-    error?: string;
-  }> = [];
+  const results: RowResult[] = [];
 
   for (const row of plan.rows) {
     const side = chosen.get(row.key);
     if (!side) continue;
 
-    const target = resolve(row, side);
-    // The chosen side no longer has data — the list changed between the dry
-    // run and now. Skipping is the only safe move.
-    if (!target) {
-      results.push({
-        key: row.key,
-        title: row.title,
-        ok: false,
-        wrote: [],
-        error: "This title changed since the dry run. Re-run it.",
-      });
-      continue;
-    }
-
-    const wrote: ("anilist" | "mal")[] = [];
-    try {
-      if (side === "anilist") {
-        if (row.malMediaId === null) throw new Error("No MyAnimeList id.");
-        await writeMalEntry(malToken, row.malMediaId, target);
-        wrote.push("mal");
-      } else {
-        const mediaId =
-          row.anilistMediaId ??
-          (row.malMediaId !== null
-            ? await anilistIdForMal(row.malMediaId)
-            : null);
-        if (mediaId === null) throw new Error("No matching AniList entry.");
-
-        await writeAniListEntry(anilistToken, mediaId, target);
-        wrote.push("anilist");
-
-        // Keep the local copy in step so the library reflects the new value
-        // without waiting for the next import.
-        await db
-          .update(libraryEntry)
-          .set({
-            progress: target.progress,
-            lastActivityAt: new Date(),
-            updatedAt: new Date(),
-          })
-          .where(
-            and(
-              eq(libraryEntry.userId, userId),
-              eq(libraryEntry.anilistMediaId, mediaId)
-            )
-          );
-      }
-
-      results.push({ key: row.key, title: row.title, ok: true, wrote });
-    } catch (error) {
-      results.push({
-        key: row.key,
-        title: row.title,
-        ok: false,
-        wrote,
-        error: error instanceof Error ? error.message : "Write failed.",
-      });
-    }
+    results.push(await applyRow(row, side, { userId, anilistToken, malToken }));
   }
 
   return c.json({
