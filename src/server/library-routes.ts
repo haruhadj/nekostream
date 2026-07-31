@@ -18,6 +18,7 @@ import {
   writeMalEntry,
 } from "@/lib/sync/tracker-entry";
 import { discoverFilters } from "@/lib/nyaa/discover";
+import { filterSchema } from "@/lib/nyaa/filter";
 import {
   getOrCreateStremioToken,
   rotateStremioToken,
@@ -49,14 +50,6 @@ const updateEntrySchema = z
   })
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Provide at least one field.");
-
-const filterSchema = z.object({
-  query: z.string().min(1),
-  category: z.string().default("1_2"),
-  filter: z.string().default("0"),
-  releaseGroup: z.string().nullish(),
-  quality: z.string().nullish(),
-});
 
 export const libraryRoutes = new Hono<Env>();
 

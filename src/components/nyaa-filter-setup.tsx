@@ -4,14 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import type { DiscoveryResult } from "@/lib/nyaa/discover";
-
-type SavedFilter = {
-  query: string;
-  category: string;
-  filter: string;
-  releaseGroup: string | null;
-  quality: string | null;
-};
+import type { SavedFilter } from "@/lib/nyaa/filter";
 
 /**
  * Shown immediately after an anime is added (plan.md), and reopenable later to

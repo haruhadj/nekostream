@@ -3,13 +3,8 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type SyncOutcome = {
-  provider: "anilist" | "mal";
-  ok: boolean;
-  skipped?: boolean;
-  reason?: string;
-  error?: string;
-};
+import { PROVIDER_LABEL } from "@/lib/providers";
+import type { SyncOutcome } from "@/lib/sync/progress";
 
 type ProgressContextValue = {
   progress: number;
@@ -21,7 +16,19 @@ type ProgressContextValue = {
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
-const PROVIDER_LABEL = { anilist: "AniList", mal: "MyAnimeList" } as const;
+/**
+ * Type guards rather than inline predicates: SyncOutcome is a discriminated
+ * union, and only these variants carry `error` and `reason`. Array.filter does
+ * not narrow on its own.
+ */
+const isFailure = (
+  outcome: SyncOutcome
+): outcome is Extract<SyncOutcome, { ok: false }> => !outcome.ok;
+
+const isSkipped = (
+  outcome: SyncOutcome
+): outcome is Extract<SyncOutcome, { skipped: true }> =>
+  outcome.ok && outcome.skipped === true;
 
 export function ProgressProvider({
   entryId,
@@ -76,8 +83,8 @@ export function ProgressProvider({
     [entryId, progress, router]
   );
 
-  const failures = outcomes?.filter((o) => !o.ok) ?? [];
-  const skipped = outcomes?.filter((o) => o.skipped) ?? [];
+  const failures = outcomes?.filter(isFailure) ?? [];
+  const skipped = outcomes?.filter(isSkipped) ?? [];
   const synced = outcomes?.filter((o) => o.ok && !o.skipped) ?? [];
 
   const status = saving
@@ -89,7 +96,7 @@ export function ProgressProvider({
             .map((f) => `${PROVIDER_LABEL[f.provider]}: ${f.error}`)
             .join(" · ")
         : skipped.length > 0
-          ? skipped.map((s) => s.reason ?? "").join(" · ")
+          ? skipped.map((s) => s.reason).join(" · ")
           : synced.length > 0
             ? `Synced to ${synced.map((s) => PROVIDER_LABEL[s.provider]).join(" and ")}`
             : "";

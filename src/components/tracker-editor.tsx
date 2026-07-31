@@ -3,24 +3,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type Provider = "anilist" | "mal";
+import { PROVIDER_LABEL, PROVIDERS, type Provider } from "@/lib/providers";
+import type { MirrorStatus as Status } from "@/lib/sync/mirror";
+import type { TrackerEntry } from "@/lib/sync/tracker-entry";
 
 /** "both" edits one set of values and writes it to each tracker in turn. */
 type Target = Provider | "both";
 
 const targetProviders = (target: Target): Provider[] =>
-  target === "both" ? ["anilist", "mal"] : [target];
-
-type Status =
-  "watching" | "planning" | "completed" | "dropped" | "paused" | "repeating";
-
-type TrackerEntry = {
-  exists: boolean;
-  progress: number;
-  status: Status | null;
-  score: number;
-  totalEpisodes: number | null;
-};
+  target === "both" ? PROVIDERS : [target];
 
 const STATUS_LABELS: { value: Status; label: string }[] = [
   { value: "watching", label: "Watching" },
@@ -31,11 +22,11 @@ const STATUS_LABELS: { value: Status; label: string }[] = [
   { value: "planning", label: "Plan to watch" },
 ];
 
-const PROVIDER = {
-  anilist: { label: "AniList", accent: "var(--anilist)" },
-  mal: { label: "MyAnimeList", accent: "var(--mal)" },
+const PROVIDER: Record<Target, { label: string; accent: string }> = {
+  anilist: { label: PROVIDER_LABEL.anilist, accent: "var(--anilist)" },
+  mal: { label: PROVIDER_LABEL.mal, accent: "var(--mal)" },
   both: { label: "Both trackers", accent: "var(--cream)" },
-} as const;
+};
 
 /**
  * The two tracker chips on an anime page. Each opens that tracker's own list

@@ -1,10 +1,9 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
+import type { Provider } from "@/lib/providers";
 import { account } from "@/db/schema";
 import { env } from "@/lib/env";
-
-export type Provider = "anilist" | "mal";
 
 export class TokenError extends Error {
   provider: Provider;

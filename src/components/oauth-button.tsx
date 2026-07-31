@@ -3,8 +3,7 @@
 import { useState } from "react";
 
 import { authClient } from "@/lib/auth-client";
-
-type Provider = "anilist" | "mal";
+import type { Provider } from "@/lib/providers";
 
 const PROVIDERS = {
   anilist: {

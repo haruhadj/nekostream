@@ -1,4 +1,5 @@
-import { getValidAccessToken, TokenError, type Provider } from "@/lib/tokens";
+import type { Provider } from "@/lib/providers";
+import { getValidAccessToken, TokenError } from "@/lib/tokens";
 import {
   writeAniListEntry,
   writeMalEntry,

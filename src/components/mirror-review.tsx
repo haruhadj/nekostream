@@ -2,32 +2,21 @@
 
 import { useMemo, useState } from "react";
 
-type Side = "anilist" | "mal";
+import type { Serialized } from "@/lib/json";
+import type {
+  MirrorPlan,
+  MirrorRow,
+  MirrorSide as ServerMirrorSide,
+  Side,
+} from "@/lib/sync/mirror";
+
 type Choice = Side | "skip";
 
-type MirrorSide = {
-  progress: number;
-  status: string | null;
-  updatedAt: string | null;
-};
-
-type Row = {
-  key: string;
-  title: string;
-  anilistMediaId: number | null;
-  malMediaId: number | null;
-  totalEpisodes: number | null;
-  anilist: MirrorSide | null;
-  mal: MirrorSide | null;
-  differences: string[];
-  suggestion: Side;
-};
-
-type Plan = {
-  rows: Row[];
-  inSyncCount: number;
-  unmappable: { title: string; anilistMediaId: number }[];
-};
+// The plan as it arrives over HTTP: identical to the server's, except that its
+// updatedAt Dates have been through JSON.stringify.
+type MirrorSide = Serialized<ServerMirrorSide>;
+type Row = Serialized<MirrorRow>;
+type Plan = Serialized<MirrorPlan>;
 
 type ApplyResult = {
   applied: number;
