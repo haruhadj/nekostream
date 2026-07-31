@@ -85,7 +85,9 @@ export function ProgressProvider({
     : error
       ? error
       : failures.length > 0
-        ? failures.map((f) => `${PROVIDER_LABEL[f.provider]}: ${f.error}`).join(" · ")
+        ? failures
+            .map((f) => `${PROVIDER_LABEL[f.provider]}: ${f.error}`)
+            .join(" · ")
         : skipped.length > 0
           ? skipped.map((s) => s.reason ?? "").join(" · ")
           : synced.length > 0
@@ -104,7 +106,8 @@ export function ProgressProvider({
 /** The stepper itself, so it can sit next to the title while the episode
  *  list consumes the same state further down the page. */
 export function ProgressControl() {
-  const { progress, totalEpisodes, saving, status, setProgress } = useProgress();
+  const { progress, totalEpisodes, saving, status, setProgress } =
+    useProgress();
 
   return (
     <div className="flex flex-wrap items-center gap-3">

@@ -74,10 +74,7 @@ test("recommends the most prolific group offering the default quality", () => {
   ]);
 
   assert.equal(result.defaultQuality, "1080p");
-  assert.equal(
-    result.groups.find((g) => g.recommended)?.releaseGroup,
-    "HasHD"
-  );
+  assert.equal(result.groups.find((g) => g.recommended)?.releaseGroup, "HasHD");
 });
 
 test("releases with no identifiable group still count toward quality options", () => {
@@ -91,7 +88,10 @@ test("releases with no identifiable group still count toward quality options", (
 
 test("composes a Nyaa query from the user's picks", () => {
   assert.equal(
-    buildQuery("mushoku tensei s3", { releaseGroup: "subsplease", quality: "1080p" }),
+    buildQuery("mushoku tensei s3", {
+      releaseGroup: "subsplease",
+      quality: "1080p",
+    }),
     "mushoku tensei s3 1080p subsplease"
   );
   assert.equal(

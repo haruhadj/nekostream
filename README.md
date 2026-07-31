@@ -21,17 +21,17 @@ openssl rand -hex 32      # MAL_CODE_VERIFIER
 
 Register the OAuth apps and set their redirect URLs to match `BETTER_AUTH_URL`:
 
-| Provider | Console | Redirect URL |
-| --- | --- | --- |
-| AniList | <https://anilist.co/settings/developer> | `$BETTER_AUTH_URL/api/auth/oauth2/callback/anilist` |
-| MyAnimeList | <https://myanimelist.net/apiconfig> | `$BETTER_AUTH_URL/api/auth/oauth2/callback/mal` |
+| Provider    | Console                                 | Redirect URL                                        |
+| ----------- | --------------------------------------- | --------------------------------------------------- |
+| AniList     | <https://anilist.co/settings/developer> | `$BETTER_AUTH_URL/api/auth/oauth2/callback/anilist` |
+| MyAnimeList | <https://myanimelist.net/apiconfig>     | `$BETTER_AUTH_URL/api/auth/oauth2/callback/mal`     |
 
 ### Origins
 
-| Variable | Required | What it is |
-| --- | --- | --- |
-| `BETTER_AUTH_URL` | yes | The single canonical origin. Forms every OAuth redirect URI. |
-| `PUBLIC_URL` | no | The public https origin, when it differs. Only the Stremio addon URL uses it. |
+| Variable          | Required | What it is                                                                    |
+| ----------------- | -------- | ----------------------------------------------------------------------------- |
+| `BETTER_AUTH_URL` | yes      | The single canonical origin. Forms every OAuth redirect URI.                  |
+| `PUBLIC_URL`      | no       | The public https origin, when it differs. Only the Stremio addon URL uses it. |
 
 `BETTER_AUTH_URL` must be the address you actually reach the app on, and there
 can only be one of it. Sessions are cookies, and a cookie set on one origin is
@@ -81,14 +81,14 @@ npm run db:migrate   # create the local SQLite schema
 npm run dev
 ```
 
-| Script | Purpose |
-| --- | --- |
-| `npm run dev` | Development server |
-| `npm run build` | Production build |
-| `npm test` | Unit tests |
-| `npm run typecheck` | TypeScript check |
+| Script                | Purpose                                        |
+| --------------------- | ---------------------------------------------- |
+| `npm run dev`         | Development server                             |
+| `npm run build`       | Production build                               |
+| `npm test`            | Unit tests                                     |
+| `npm run typecheck`   | TypeScript check                               |
 | `npm run db:generate` | Generate a migration after changing the schema |
-| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:migrate`  | Apply pending migrations                       |
 
 ## How it works
 

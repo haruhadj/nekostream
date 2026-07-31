@@ -171,7 +171,9 @@ async function catalog(
   const needle = search?.trim().toLowerCase();
   const matched = needle
     ? entries.filter((e) =>
-        `${e.titleRomaji} ${e.titleEnglish ?? ""}`.toLowerCase().includes(needle)
+        `${e.titleRomaji} ${e.titleEnglish ?? ""}`
+          .toLowerCase()
+          .includes(needle)
       )
     : entries;
 
@@ -252,7 +254,10 @@ stremioRoutes.get("/:token/meta/series/:id", async (c) => {
   for (const row of rows) {
     const number = row.episodeNumber ?? BATCH_EPISODE;
     const current = released.get(number) ?? null;
-    if (!released.has(number) || (row.publishedAt && (!current || row.publishedAt > current))) {
+    if (
+      !released.has(number) ||
+      (row.publishedAt && (!current || row.publishedAt > current))
+    ) {
       released.set(number, row.publishedAt);
     }
   }
@@ -261,14 +266,19 @@ stremioRoutes.get("/:token/meta/series/:id", async (c) => {
     .sort(([a], [b]) => a - b)
     .map(([number, date]) => ({
       id: `${ID_PREFIX}${entry.id}:1:${number}`,
-      title: number === BATCH_EPISODE ? "Batches & unnumbered" : `Episode ${number}`,
+      title:
+        number === BATCH_EPISODE ? "Batches & unnumbered" : `Episode ${number}`,
       season: 1,
       episode: number,
       released: (date ?? entry.createdAt).toISOString(),
     }));
 
   return c.json({
-    meta: { ...toMetaPreview(entry), videos, background: entry.coverImageUrl ?? undefined },
+    meta: {
+      ...toMetaPreview(entry),
+      videos,
+      background: entry.coverImageUrl ?? undefined,
+    },
   });
 });
 
@@ -287,7 +297,9 @@ stremioRoutes.get("/:token/stream/series/:id", async (c) => {
 
   const wanted =
     parsed.episodeNumber === BATCH_EPISODE
-      ? rows.filter((r) => r.episodeNumber === null || r.episodeNumber === BATCH_EPISODE)
+      ? rows.filter(
+          (r) => r.episodeNumber === null || r.episodeNumber === BATCH_EPISODE
+        )
       : rows.filter((r) => r.episodeNumber === parsed.episodeNumber);
 
   const streams = wanted.map((row) => {
@@ -297,7 +309,9 @@ stremioRoutes.get("/:token/stream/series/:id", async (c) => {
       name: `NekoStream${row.quality ? ` ${row.quality}` : ""}`,
       title: [
         row.rawTitle,
-        [`👤 ${row.seeders ?? 0}`, size && `💾 ${size}`].filter(Boolean).join(" · "),
+        [`👤 ${row.seeders ?? 0}`, size && `💾 ${size}`]
+          .filter(Boolean)
+          .join(" · "),
       ].join("\n"),
       // infoHash + sources (not a magnet url) is what hands the torrent to
       // Stremio's own streaming engine instead of an external player.

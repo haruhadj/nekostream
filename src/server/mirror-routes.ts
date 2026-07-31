@@ -68,7 +68,10 @@ async function loadPlan(userId: string) {
 
 function errorResponse(error: unknown) {
   if (error instanceof TokenError) {
-    return { body: { error: error.message, provider: error.provider }, status: 401 as const };
+    return {
+      body: { error: error.message, provider: error.provider },
+      status: 401 as const,
+    };
   }
   if (error instanceof MalError) {
     return { body: { error: error.message }, status: 502 as const };
@@ -184,7 +187,10 @@ async function anilistIdForMal(malMediaId: number): Promise<number | null> {
 mirrorRoutes.post("/apply", async (c) => {
   const parsed = applySchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid decisions.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid decisions.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const userId = c.get("userId");
@@ -235,15 +241,27 @@ mirrorRoutes.post("/apply", async (c) => {
     try {
       if (side === "anilist") {
         if (row.malMediaId === null) throw new Error("No MyAnimeList id.");
-        await writeToMal(malToken, row.malMediaId, target.progress, target.status);
+        await writeToMal(
+          malToken,
+          row.malMediaId,
+          target.progress,
+          target.status
+        );
         wrote.push("mal");
       } else {
         const mediaId =
           row.anilistMediaId ??
-          (row.malMediaId !== null ? await anilistIdForMal(row.malMediaId) : null);
+          (row.malMediaId !== null
+            ? await anilistIdForMal(row.malMediaId)
+            : null);
         if (mediaId === null) throw new Error("No matching AniList entry.");
 
-        await writeToAniList(anilistToken, mediaId, target.progress, target.status);
+        await writeToAniList(
+          anilistToken,
+          mediaId,
+          target.progress,
+          target.status
+        );
         wrote.push("anilist");
 
         // Keep the local copy in step so the library reflects the new value

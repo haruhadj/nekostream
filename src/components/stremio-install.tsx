@@ -25,7 +25,10 @@ export function StremioInstall() {
         const res = await fetch("/api/library/stremio-token");
         const json = await res.json();
         if (!res.ok) {
-          setState({ kind: "failed", message: json.error ?? "Could not load the addon URL." });
+          setState({
+            kind: "failed",
+            message: json.error ?? "Could not load the addon URL.",
+          });
           return;
         }
         setState({ kind: "ready", url: json.url });
@@ -36,11 +39,16 @@ export function StremioInstall() {
   }, []);
 
   async function rotate() {
-    if (!confirm("Rotate the token? Stremio will need the new URL reinstalled.")) return;
+    if (
+      !confirm("Rotate the token? Stremio will need the new URL reinstalled.")
+    )
+      return;
 
     setRotating(true);
     try {
-      const res = await fetch("/api/library/stremio-token/rotate", { method: "POST" });
+      const res = await fetch("/api/library/stremio-token/rotate", {
+        method: "POST",
+      });
       const json = await res.json();
       if (res.ok) setState({ kind: "ready", url: json.url });
     } finally {

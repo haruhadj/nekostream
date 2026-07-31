@@ -29,13 +29,18 @@ anilistRoutes.get("/search", async (c) => {
   });
 
   if (!parsed.success) {
-    return c.json({ error: "Invalid search.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid search.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const { q, page } = parsed.data;
 
   try {
-    const result = q ? await searchMedia(q, { page }) : await trendingMedia({ page });
+    const result = q
+      ? await searchMedia(q, { page })
+      : await trendingMedia({ page });
     return c.json({ query: q, ...result });
   } catch (error) {
     if (error instanceof AniListError) {

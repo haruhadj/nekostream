@@ -67,9 +67,10 @@ export function parseSizeToBytes(size: string | undefined): number | null {
 
 /** The guid is a permalink: https://nyaa.si/view/2138496 */
 function parseNyaaId(guid: unknown): number | null {
-  const text = typeof guid === "object" && guid !== null
-    ? String((guid as { "#text"?: unknown })["#text"] ?? "")
-    : String(guid ?? "");
+  const text =
+    typeof guid === "object" && guid !== null
+      ? String((guid as { "#text"?: unknown })["#text"] ?? "")
+      : String(guid ?? "");
   const match = text.match(/\/view\/(\d+)/);
   return match ? Number(match[1]) : null;
 }
@@ -120,7 +121,9 @@ export function parseRssFeed(xml: string): NyaaRelease[] {
         infoHash,
         magnetUri: buildMagnetUri(infoHash, rawTitle),
         sizeBytes: parseSizeToBytes(
-          item["nyaa:size"] === undefined ? undefined : String(item["nyaa:size"])
+          item["nyaa:size"] === undefined
+            ? undefined
+            : String(item["nyaa:size"])
         ),
         seeders: toNumberOrNull(item["nyaa:seeders"]),
         leechers: toNumberOrNull(item["nyaa:leechers"]),

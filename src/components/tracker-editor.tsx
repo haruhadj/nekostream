@@ -12,12 +12,7 @@ const targetProviders = (target: Target): Provider[] =>
   target === "both" ? ["anilist", "mal"] : [target];
 
 type Status =
-  | "watching"
-  | "planning"
-  | "completed"
-  | "dropped"
-  | "paused"
-  | "repeating";
+  "watching" | "planning" | "completed" | "dropped" | "paused" | "repeating";
 
 type TrackerEntry = {
   exists: boolean;
@@ -157,15 +152,22 @@ function TrackerDialog({
   const syncLabel =
     target === "both" ? "AniList and MyAnimeList" : PROVIDER[target].label;
 
-  const autoSync = target === "mal" ? syncMal : target === "anilist" ? syncAnilist : syncAnilist && syncMal;
+  const autoSync =
+    target === "mal"
+      ? syncMal
+      : target === "anilist"
+        ? syncAnilist
+        : syncAnilist && syncMal;
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [entries, setEntries] = useState<Partial<Record<Provider, TrackerEntry>>>(
+  const [entries, setEntries] = useState<
+    Partial<Record<Provider, TrackerEntry>>
+  >({});
+  const [failures, setFailures] = useState<Partial<Record<Provider, string>>>(
     {}
   );
-  const [failures, setFailures] = useState<Partial<Record<Provider, string>>>({});
   const [form, setForm] = useState({
     progress: 0,
     status: "watching" as Status,
@@ -418,9 +420,7 @@ function TrackerDialog({
                 </div>
               </Field>
 
-              <Field
-                label={`Episodes watched${total ? ` (of ${total})` : ""}`}
-              >
+              <Field label={`Episodes watched${total ? ` (of ${total})` : ""}`}>
                 <div className="flex items-center gap-2">
                   <Stepper
                     label="One fewer episode"

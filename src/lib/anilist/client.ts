@@ -44,7 +44,10 @@ type GraphQLResponse<T> = {
 export async function anilistRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},
-  { accessToken, timeoutMs = 15_000 }: { accessToken?: string | null; timeoutMs?: number } = {}
+  {
+    accessToken,
+    timeoutMs = 15_000,
+  }: { accessToken?: string | null; timeoutMs?: number } = {}
 ): Promise<T> {
   let response: Response;
 
@@ -72,7 +75,9 @@ export async function anilistRequest<T>(
     });
   }
 
-  const json = (await response.json().catch(() => null)) as GraphQLResponse<T> | null;
+  const json = (await response
+    .json()
+    .catch(() => null)) as GraphQLResponse<T> | null;
 
   if (!json) {
     throw new AniListError("AniList returned a malformed response.", {

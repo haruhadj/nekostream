@@ -89,7 +89,10 @@ libraryRoutes.get("/", async (c) => {
 libraryRoutes.post("/", async (c) => {
   const parsed = addEntrySchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid anime.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid anime.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const userId = c.get("userId");
@@ -168,7 +171,10 @@ libraryRoutes.post("/sync", async (c) => {
   }
 
   try {
-    return c.json({ ...(await importAniListLibrary(userId)), throttled: false });
+    return c.json({
+      ...(await importAniListLibrary(userId)),
+      throttled: false,
+    });
   } catch (error) {
     if (error instanceof TokenError) {
       return c.json({ error: error.message }, 401);
@@ -188,7 +194,10 @@ libraryRoutes.patch("/:id", async (c) => {
     await c.req.json().catch(() => null)
   );
   if (!parsed.success) {
-    return c.json({ error: "Invalid update.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid update.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const [updated] = await db
@@ -256,7 +265,10 @@ libraryRoutes.put("/:id/filter", async (c) => {
 
   const parsed = filterSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid filter.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid filter.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const [filter] = await db
@@ -309,7 +321,10 @@ libraryRoutes.put("/:id/progress", async (c) => {
 
   const parsed = progressSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid progress.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid progress.", issues: parsed.error.issues },
+      400
+    );
   }
 
   const { progress } = parsed.data;
@@ -374,9 +389,12 @@ const providerParam = z.enum(["anilist", "mal"]);
 
 /** Turns tracker failures into a status the client can act on. */
 function trackerError(error: unknown) {
-  if (error instanceof TokenError) return { message: error.message, status: 401 as const };
-  if (error instanceof MalError) return { message: error.message, status: 502 as const };
-  if (error instanceof AniListError) return { message: error.message, status: 502 as const };
+  if (error instanceof TokenError)
+    return { message: error.message, status: 401 as const };
+  if (error instanceof MalError)
+    return { message: error.message, status: 502 as const };
+  if (error instanceof AniListError)
+    return { message: error.message, status: 502 as const };
   return null;
 }
 
@@ -417,7 +435,10 @@ libraryRoutes.put("/:id/tracker/:provider", async (c) => {
 
   const parsed = trackerSchema.safeParse(await c.req.json().catch(() => null));
   if (!parsed.success) {
-    return c.json({ error: "Invalid values.", issues: parsed.error.issues }, 400);
+    return c.json(
+      { error: "Invalid values.", issues: parsed.error.issues },
+      400
+    );
   }
 
   if (provider.data === "mal" && entry.malMediaId === null) {

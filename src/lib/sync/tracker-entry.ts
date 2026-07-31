@@ -172,7 +172,10 @@ export async function deleteMalEntry(accessToken: string, malMediaId: number) {
 
   // 404 means it was already absent, which is the state the caller wanted.
   if (!response.ok && response.status !== 404) {
-    throw new MalError(response.status, `MyAnimeList returned ${response.status}`);
+    throw new MalError(
+      response.status,
+      `MyAnimeList returned ${response.status}`
+    );
   }
 }
 

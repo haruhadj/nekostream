@@ -129,74 +129,76 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
           No titles match &ldquo;{query.trim()}&rdquo;.
         </p>
       ) : (
-      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
-        {filtered.map((entry) => {
-          // Only a known total gives a meaningful bar; ongoing shows with an
-          // unknown length would otherwise render a fake full one.
-          const ratio =
-            entry.totalEpisodes && entry.totalEpisodes > 0
-              ? Math.min(entry.progress / entry.totalEpisodes, 1)
-              : null;
+        <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
+          {filtered.map((entry) => {
+            // Only a known total gives a meaningful bar; ongoing shows with an
+            // unknown length would otherwise render a fake full one.
+            const ratio =
+              entry.totalEpisodes && entry.totalEpisodes > 0
+                ? Math.min(entry.progress / entry.totalEpisodes, 1)
+                : null;
 
-          return (
-            <li key={entry.id}>
-              <Link
-                href={`/anime/${entry.id}`}
-                className="group block transition active:scale-[0.97]"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
-                  {entry.coverImageUrl ? (
-                    /* AniList CDN images; a plain img avoids remote-host config
+            return (
+              <li key={entry.id}>
+                <Link
+                  href={`/anime/${entry.id}`}
+                  className="group block transition active:scale-[0.97]"
+                >
+                  <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
+                    {entry.coverImageUrl ? (
+                      /* AniList CDN images; a plain img avoids remote-host config
                        for a domain the user can't change. */
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={entry.coverImageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : null}
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={entry.coverImageUrl}
+                        alt=""
+                        loading="lazy"
+                        className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                      />
+                    ) : null}
 
-                  {/* Scrim so the badge and the progress bar stay legible over
+                    {/* Scrim so the badge and the progress bar stay legible over
                       whatever the cover art happens to be. */}
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/85 to-transparent"
-                  />
-
-                  {entry.nextAiringAt && entry.nextAiringEpisode ? (
-                    <AiringBadge
-                      episodeNumber={entry.nextAiringEpisode}
-                      airingAt={entry.nextAiringAt.toISOString()}
-                    />
-                  ) : null}
-
-                  {ratio !== null && ratio > 0 ? (
                     <div
                       aria-hidden="true"
-                      className="absolute inset-x-0 bottom-0 h-1 bg-ink/50"
-                    >
-                      <div
-                        className="h-full bg-anilist"
-                        style={{ width: `${ratio * 100}%` }}
-                      />
-                    </div>
-                  ) : null}
-                </div>
+                      className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/85 to-transparent"
+                    />
 
-                <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
-                  {entry.titleEnglish ?? entry.titleRomaji}
-                </p>
-                <p className="mt-1 text-xs text-muted tabular-nums">
-                  {entry.progress}
-                  {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""}{" "}
-                  watched
-                </p>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                    {entry.nextAiringAt && entry.nextAiringEpisode ? (
+                      <AiringBadge
+                        episodeNumber={entry.nextAiringEpisode}
+                        airingAt={entry.nextAiringAt.toISOString()}
+                      />
+                    ) : null}
+
+                    {ratio !== null && ratio > 0 ? (
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-x-0 bottom-0 h-1 bg-ink/50"
+                      >
+                        <div
+                          className="h-full bg-anilist"
+                          style={{ width: `${ratio * 100}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+
+                  <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
+                    {entry.titleEnglish ?? entry.titleRomaji}
+                  </p>
+                  <p className="mt-1 text-xs text-muted tabular-nums">
+                    {entry.progress}
+                    {entry.totalEpisodes
+                      ? ` / ${entry.totalEpisodes}`
+                      : ""}{" "}
+                    watched
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
       )}
     </>
   );

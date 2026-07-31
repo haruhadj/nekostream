@@ -33,8 +33,12 @@ export function NyaaFilterSetup({
 
   const [title, setTitle] = useState(savedFilter?.query ?? defaultTitle);
   const [discovery, setDiscovery] = useState<DiscoveryResult | null>(null);
-  const [group, setGroup] = useState<string | null>(savedFilter?.releaseGroup ?? null);
-  const [quality, setQuality] = useState<string | null>(savedFilter?.quality ?? null);
+  const [group, setGroup] = useState<string | null>(
+    savedFilter?.releaseGroup ?? null
+  );
+  const [quality, setQuality] = useState<string | null>(
+    savedFilter?.quality ?? null
+  );
 
   const [probing, setProbing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -57,7 +61,11 @@ export function NyaaFilterSetup({
       // Only preselect when the user hasn't already chosen.
       setQuality((q) => q ?? json.defaultQuality);
       setGroup(
-        (g) => g ?? json.groups.find((x: { recommended: boolean }) => x.recommended)?.releaseGroup ?? null
+        (g) =>
+          g ??
+          json.groups.find((x: { recommended: boolean }) => x.recommended)
+            ?.releaseGroup ??
+          null
       );
     } catch {
       setError("Could not reach the server.");

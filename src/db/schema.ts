@@ -201,9 +201,7 @@ export const rssFilter = sqliteTable(
       .$defaultFn(() => new Date())
       .notNull(),
   },
-  (t) => [
-    uniqueIndex("rss_filter_library_entry_idx").on(t.libraryEntryId),
-  ]
+  (t) => [uniqueIndex("rss_filter_library_entry_idx").on(t.libraryEntryId)]
 );
 
 /**

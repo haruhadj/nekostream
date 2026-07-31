@@ -8,12 +8,7 @@
 
 /** The shared vocabulary. Both trackers map onto this, neither drives it. */
 export type MirrorStatus =
-  | "watching"
-  | "planning"
-  | "completed"
-  | "dropped"
-  | "paused"
-  | "repeating";
+  "watching" | "planning" | "completed" | "dropped" | "paused" | "repeating";
 
 const ANILIST_TO_MIRROR: Record<string, MirrorStatus> = {
   CURRENT: "watching",

@@ -95,7 +95,8 @@ export async function getValidAccessToken(
   }
 
   const expiresAt = row.accessTokenExpiresAt?.getTime() ?? null;
-  const isExpired = expiresAt !== null && expiresAt - EXPIRY_SKEW_MS <= Date.now();
+  const isExpired =
+    expiresAt !== null && expiresAt - EXPIRY_SKEW_MS <= Date.now();
 
   if (!isExpired) return row.accessToken;
 

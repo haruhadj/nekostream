@@ -225,17 +225,25 @@ export function SearchBrowser({
                 </button>
               </div>
               {preview.title.english ? (
-                <p className="mt-1 text-sm text-muted">{preview.title.romaji}</p>
+                <p className="mt-1 text-sm text-muted">
+                  {preview.title.romaji}
+                </p>
               ) : null}
 
               <p className="mt-2 text-xs text-muted">
-                {[preview.format, preview.seasonYear, preview.episodes ? `${preview.episodes} ep` : null]
+                {[
+                  preview.format,
+                  preview.seasonYear,
+                  preview.episodes ? `${preview.episodes} ep` : null,
+                ]
                   .filter(Boolean)
                   .join(" · ")}
               </p>
 
               {preview.genres.length > 0 ? (
-                <p className="mt-2 text-xs text-muted">{preview.genres.join(" · ")}</p>
+                <p className="mt-2 text-xs text-muted">
+                  {preview.genres.join(" · ")}
+                </p>
               ) : null}
 
               {preview.description ? (

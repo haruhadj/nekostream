@@ -61,7 +61,9 @@ test("magnet uri carries the info hash and trackers", () => {
   const magnet = buildMagnetUri("abc123", "Some Show - 04");
   assert.ok(magnet.startsWith("magnet:?xt=urn:btih:abc123&"));
   assert.ok(magnet.includes("dn=Some+Show+-+04"));
-  assert.ok(magnet.includes("tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce"));
+  assert.ok(
+    magnet.includes("tr=http%3A%2F%2Fnyaa.tracker.wf%3A7777%2Fannounce")
+  );
 });
 
 test("builds the documented Nyaa RSS url shape", () => {

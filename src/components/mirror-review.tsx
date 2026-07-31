@@ -55,7 +55,10 @@ export function MirrorReview() {
       const res = await fetch("/api/mirror");
       const json = await res.json();
       if (!res.ok) {
-        setPhase({ kind: "error", message: json.error ?? "Could not compare." });
+        setPhase({
+          kind: "error",
+          message: json.error ?? "Could not compare.",
+        });
         return;
       }
       setChoices({});
@@ -144,9 +147,7 @@ export function MirrorReview() {
             <BulkButton onClick={() => setAll(plan, "mal")}>
               MAL for all
             </BulkButton>
-            <BulkButton onClick={() => setAll(plan, "skip")}>
-              Clear
-            </BulkButton>
+            <BulkButton onClick={() => setAll(plan, "skip")}>Clear</BulkButton>
           </div>
 
           <ul className="mt-5 space-y-3">
@@ -292,7 +293,9 @@ function SideOption({
           {label}
         </span>
         {suggested ? (
-          <span className="text-[10px] font-medium text-anilist">suggested</span>
+          <span className="text-[10px] font-medium text-anilist">
+            suggested
+          </span>
         ) : null}
       </span>
 
