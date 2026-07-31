@@ -16,6 +16,10 @@ services:
       # Generate with: openssl rand -base64 32
       BETTER_AUTH_SECRET: "${BETTER_AUTH_SECRET:?set BETTER_AUTH_SECRET in .env}"
 
+      # Optional. The public https origin, when it differs from BETTER_AUTH_URL.
+      # Only the Stremio addon URL uses it — Stremio Web rejects plain http.
+      PUBLIC_URL: "${PUBLIC_URL:-}"
+
       ANILIST_CLIENT_ID: "${ANILIST_CLIENT_ID:?set ANILIST_CLIENT_ID in .env}"
       ANILIST_CLIENT_SECRET: "${ANILIST_CLIENT_SECRET:?set ANILIST_CLIENT_SECRET in .env}"
 

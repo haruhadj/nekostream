@@ -5,6 +5,15 @@ const envSchema = z.object({
   BETTER_AUTH_SECRET: z.string().min(32),
   BETTER_AUTH_URL: z.url().default("http://localhost:3000"),
 
+  /**
+   * The origin the app is reached on from outside, when that differs from
+   * BETTER_AUTH_URL — a LAN address is fine for OAuth but useless to Stremio
+   * Web, which requires https. Only the Stremio addon URL uses this.
+   */
+  // Compose passes an empty string when the var is unset, so normalise that to
+  // undefined before the url check rejects it.
+  PUBLIC_URL: z.preprocess((v) => v || undefined, z.url().optional()),
+
   ANILIST_CLIENT_ID: z.string().min(1),
   ANILIST_CLIENT_SECRET: z.string().min(1),
 
