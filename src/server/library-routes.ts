@@ -11,7 +11,7 @@ import { getValidAccessToken, TokenError } from "@/lib/tokens";
 import { refreshEpisodes } from "@/lib/library/refresh";
 import { syncProgress } from "@/lib/sync/progress";
 import { MIRROR_TO_ANILIST } from "@/lib/sync/mirror";
-import { MalError } from "@/lib/mal/queries";
+import { MalError } from "@/lib/mal/client";
 import {
   deleteAniListEntry,
   deleteMalEntry,

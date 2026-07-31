@@ -4,15 +4,7 @@
  * there before it can say what differs.
  */
 
-export class MalError extends Error {
-  status: number;
-
-  constructor(status: number, message: string) {
-    super(message);
-    this.name = "MalError";
-    this.status = status;
-  }
-}
+import { malFetch } from "./client.ts";
 
 export type MalListEntry = {
   malMediaId: number;
@@ -54,21 +46,7 @@ export async function viewerMalList(
   const entries: MalListEntry[] = [];
 
   for (let page = 0; page < MAX_PAGES && url; page++) {
-    const response = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: AbortSignal.timeout(20_000),
-    });
-
-    if (!response.ok) {
-      const detail = await response.text().catch(() => "");
-      throw new MalError(
-        response.status,
-        response.status === 401
-          ? "MyAnimeList rejected the token. Link the account again."
-          : `MyAnimeList returned ${response.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`
-      );
-    }
-
+    const response = await malFetch(accessToken, url, { timeoutMs: 20_000 });
     const json = (await response.json()) as MalListResponse;
 
     for (const item of json.data ?? []) {

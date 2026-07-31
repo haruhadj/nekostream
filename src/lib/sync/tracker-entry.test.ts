@@ -10,7 +10,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { stubFetch } from "../test-support/fetch-stub.ts";
-import { MalError } from "../mal/queries.ts";
+import { MalError } from "../mal/client.ts";
 import {
   deleteAniListEntry,
   deleteMalEntry,

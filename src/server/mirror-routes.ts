@@ -7,18 +7,22 @@ import { libraryEntry } from "@/db/schema";
 import { anilistRequest, AniListError } from "@/lib/anilist/client";
 import { viewerLibrary } from "@/lib/anilist/queries";
 import { auth } from "@/lib/auth";
-import { MalError, viewerMalList } from "@/lib/mal/queries";
+import { MalError } from "@/lib/mal/client";
+import { viewerMalList } from "@/lib/mal/queries";
 import {
   buildMirrorPlan,
   fromAniListStatus,
   fromMalStatus,
-  MIRROR_TO_ANILIST,
-  MIRROR_TO_MAL,
   type AniListItem,
   type MalItem,
   type MirrorRow,
   type MirrorStatus,
 } from "@/lib/sync/mirror";
+import {
+  writeAniListEntry,
+  writeMalEntry,
+  type TrackerWrite,
+} from "@/lib/sync/tracker-entry";
 import { getValidAccessToken, TokenError } from "@/lib/tokens";
 
 type Env = { Variables: { userId: string } };
@@ -110,59 +114,18 @@ const applySchema = z.object({
     .max(400),
 });
 
-/** Values one row should end up with on both trackers. */
-function resolve(row: MirrorRow, side: "anilist" | "mal") {
+/**
+ * Values one row should end up with on both trackers, or null if the chosen
+ * side no longer has usable data.
+ *
+ * Score is deliberately absent: the user is reconciling progress and status,
+ * not rating anything, so the losing side keeps its own rating.
+ */
+function resolve(row: MirrorRow, side: "anilist" | "mal"): TrackerWrite | null {
   const source = side === "anilist" ? row.anilist : row.mal;
-  if (!source) return null;
+  if (!source || source.status === null) return null;
+
   return { progress: source.progress, status: source.status };
-}
-
-async function writeToMal(
-  token: string,
-  malMediaId: number,
-  progress: number,
-  status: MirrorStatus
-) {
-  const mapped = MIRROR_TO_MAL[status];
-  const response = await fetch(
-    `https://api.myanimelist.net/v2/anime/${malMediaId}/my_list_status`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        num_watched_episodes: String(progress),
-        status: mapped.status,
-        is_rewatching: String(mapped.isRewatching),
-      }),
-      signal: AbortSignal.timeout(15_000),
-    }
-  );
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new MalError(
-      response.status,
-      `MyAnimeList returned ${response.status}${detail ? `: ${detail.slice(0, 80)}` : ""}`
-    );
-  }
-}
-
-async function writeToAniList(
-  token: string,
-  mediaId: number,
-  progress: number,
-  status: MirrorStatus
-) {
-  await anilistRequest(
-    `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-       SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) { id }
-     }`,
-    { mediaId, progress, status: MIRROR_TO_ANILIST[status] },
-    { accessToken: token }
-  );
 }
 
 /**
@@ -226,7 +189,7 @@ mirrorRoutes.post("/apply", async (c) => {
     const target = resolve(row, side);
     // The chosen side no longer has data — the list changed between the dry
     // run and now. Skipping is the only safe move.
-    if (!target || target.status === null) {
+    if (!target) {
       results.push({
         key: row.key,
         title: row.title,
@@ -241,12 +204,7 @@ mirrorRoutes.post("/apply", async (c) => {
     try {
       if (side === "anilist") {
         if (row.malMediaId === null) throw new Error("No MyAnimeList id.");
-        await writeToMal(
-          malToken,
-          row.malMediaId,
-          target.progress,
-          target.status
-        );
+        await writeMalEntry(malToken, row.malMediaId, target);
         wrote.push("mal");
       } else {
         const mediaId =
@@ -256,12 +214,7 @@ mirrorRoutes.post("/apply", async (c) => {
             : null);
         if (mediaId === null) throw new Error("No matching AniList entry.");
 
-        await writeToAniList(
-          anilistToken,
-          mediaId,
-          target.progress,
-          target.status
-        );
+        await writeAniListEntry(anilistToken, mediaId, target);
         wrote.push("anilist");
 
         // Keep the local copy in step so the library reflects the new value

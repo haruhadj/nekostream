@@ -15,7 +15,7 @@ const DB = new URL("../db/index.ts", import.meta.url).href;
 const TOKENS = new URL("../lib/tokens.ts", import.meta.url).href;
 const TRACKER = new URL("../lib/sync/tracker-entry.ts", import.meta.url).href;
 const ANILIST = new URL("../lib/anilist/client.ts", import.meta.url).href;
-const MAL = new URL("../lib/mal/queries.ts", import.meta.url).href;
+const MAL = new URL("../lib/mal/client.ts", import.meta.url).href;
 
 class TokenError extends Error {
   provider: string;

@@ -27,14 +27,6 @@ class TokenError extends Error {
     this.provider = provider;
   }
 }
-class MalError extends Error {
-  status: number;
-  constructor(status: number, message: string) {
-    super(message);
-    this.status = status;
-  }
-}
-
 /** One anime, further along on AniList than on MyAnimeList. */
 const ANILIST_ENTRY = {
   media: {
@@ -88,11 +80,10 @@ async function loadRoutes({
     namedExports: { viewerLibrary: () => Promise.resolve([ANILIST_ENTRY]) },
   });
 
+  // Only the list read is stubbed; the write path exercises the real
+  // MyAnimeList client so the wire format below is the genuine one.
   mock.module(MAL_QUERIES, {
-    namedExports: {
-      MalError,
-      viewerMalList: () => Promise.resolve([MAL_ENTRY]),
-    },
+    namedExports: { viewerMalList: () => Promise.resolve([MAL_ENTRY]) },
   });
 
   const module = await import(

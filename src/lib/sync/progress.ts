@@ -1,65 +1,15 @@
-import { anilistRequest } from "@/lib/anilist/client";
 import { getValidAccessToken, TokenError, type Provider } from "@/lib/tokens";
-import { deriveStatus, type TrackerStatus } from "./status.ts";
+import {
+  writeAniListEntry,
+  writeMalEntry,
+  type TrackerWrite,
+} from "./tracker-entry.ts";
+import { deriveStatus } from "./status.ts";
 
 export type SyncOutcome =
   | { provider: Provider; ok: true; skipped?: false }
   | { provider: Provider; ok: false; skipped?: false; error: string }
   | { provider: Provider; ok: true; skipped: true; reason: string };
-
-const ANILIST_STATUS: Record<TrackerStatus, string> = {
-  watching: "CURRENT",
-  completed: "COMPLETED",
-};
-
-async function pushToAniList(
-  accessToken: string,
-  mediaId: number,
-  progress: number,
-  status: TrackerStatus
-) {
-  await anilistRequest(
-    `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
-       SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) {
-         id
-         progress
-         status
-       }
-     }`,
-    { mediaId, progress, status: ANILIST_STATUS[status] },
-    { accessToken }
-  );
-}
-
-async function pushToMal(
-  accessToken: string,
-  malMediaId: number,
-  progress: number,
-  status: TrackerStatus
-) {
-  const response = await fetch(
-    `https://api.myanimelist.net/v2/anime/${malMediaId}/my_list_status`,
-    {
-      method: "PATCH",
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        "Content-Type": "application/x-www-form-urlencoded",
-      },
-      body: new URLSearchParams({
-        num_watched_episodes: String(progress),
-        status: status === "completed" ? "completed" : "watching",
-      }),
-      signal: AbortSignal.timeout(15_000),
-    }
-  );
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new Error(
-      `MyAnimeList returned ${response.status}${detail ? `: ${detail.slice(0, 120)}` : ""}`
-    );
-  }
-}
 
 export type SyncTarget = {
   userId: string;
@@ -80,7 +30,13 @@ export async function syncProgress(
   target: SyncTarget,
   progress: number
 ): Promise<SyncOutcome[]> {
-  const status = deriveStatus(progress, target.totalEpisodes);
+  // Progress and status only. Score is left to the tracker editor, and the
+  // rewatch flag is left to whatever the tracker already holds.
+  const write: TrackerWrite = {
+    progress,
+    status: deriveStatus(progress, target.totalEpisodes),
+    keepRewatchFlag: true,
+  };
 
   const jobs: Array<Promise<SyncOutcome>> = [];
 
@@ -88,7 +44,7 @@ export async function syncProgress(
     jobs.push(
       run("anilist", async () => {
         const token = await getValidAccessToken(target.userId, "anilist");
-        await pushToAniList(token, target.anilistMediaId, progress, status);
+        await writeAniListEntry(token, target.anilistMediaId, write);
       })
     );
   }
@@ -108,7 +64,7 @@ export async function syncProgress(
       jobs.push(
         run("mal", async () => {
           const token = await getValidAccessToken(target.userId, "mal");
-          await pushToMal(token, malMediaId, progress, status);
+          await writeMalEntry(token, malMediaId, write);
         })
       );
     }
