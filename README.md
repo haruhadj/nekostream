@@ -104,7 +104,12 @@ npm run dev
   library as catalogs (one per library tab, sorted via Stremio's `genre`
   dropdown) and serves each episode's scraped releases as streams. Stremio
   cannot send session cookies, so the URL carries a per-user secret instead;
-  copy or rotate it from Settings.
+  copy or rotate it from Settings. Catalogs page 100 at a time via the `skip`
+  extra, which cuts first paint on a large library but does not reduce server
+  work — the untracked filter and the sorts run in memory, so every page still
+  loads and orders the whole list before slicing. Sorting spans the full set
+  deliberately, so page 3 is the 201st–300th in that order rather than a
+  re-sorted chunk.
 - **Progress** — writes land in the local database first, then push to the
   enabled trackers independently. One tracker failing never blocks the other or
   discards the local write.
