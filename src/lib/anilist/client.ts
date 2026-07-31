@@ -1,8 +1,3 @@
-import { and, eq } from "drizzle-orm";
-
-import { db } from "@/db";
-import { account } from "@/db/schema";
-
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
 export class AniListError extends Error {
@@ -19,17 +14,6 @@ export class AniListError extends Error {
     this.status = status;
     this.retryAfter = retryAfter;
   }
-}
-
-/** Reads the AniList token better-auth stored at sign-in. */
-export async function getAniListToken(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ accessToken: account.accessToken })
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, "anilist")))
-    .limit(1);
-
-  return row?.accessToken ?? null;
 }
 
 type GraphQLResponse<T> = {
@@ -63,7 +47,7 @@ export async function anilistRequest<T>(
       signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
-  } catch (cause) {
+  } catch {
     throw new AniListError("Could not reach AniList.", { status: 502 });
   }
 

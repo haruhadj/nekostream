@@ -1,8 +1,6 @@
 import { anilistRequest } from "@/lib/anilist/client";
 import { getValidAccessToken, TokenError, type Provider } from "@/lib/tokens";
-import { deriveStatus, type TrackerStatus } from "./status";
-
-export { deriveStatus, type TrackerStatus };
+import { deriveStatus, type TrackerStatus } from "./status.ts";
 
 export type SyncOutcome =
   | { provider: Provider; ok: true; skipped?: false }

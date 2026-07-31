@@ -109,7 +109,3 @@ export async function getValidAccessToken(
     `The ${provider === "mal" ? "MyAnimeList" : "AniList"} session expired. Sign in again.`
   );
 }
-
-export async function isLinked(userId: string, provider: Provider) {
-  return (await loadAccount(userId, provider)) !== null;
-}

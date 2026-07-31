@@ -29,7 +29,7 @@ function catalogId(filterKey: string) {
   return `nekostream-${filterKey}`;
 }
 
-export function generateStremioToken() {
+function generateStremioToken() {
   return randomBytes(24).toString("base64url");
 }
 
