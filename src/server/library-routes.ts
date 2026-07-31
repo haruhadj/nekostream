@@ -104,7 +104,16 @@ libraryRoutes.post("/", async (c) => {
 
   const [entry] = await db
     .insert(libraryEntry)
-    .values({ id: crypto.randomUUID(), userId, ...parsed.data })
+    .values({
+      id: crypto.randomUUID(),
+      userId,
+      ...parsed.data,
+      // Manually-added titles start untracked — syncing would otherwise push
+      // a brand-new entry onto the user's real AniList/MAL lists the moment
+      // they touch progress. AniList imports set these true on their own path.
+      syncAnilist: false,
+      syncMal: false,
+    })
     .returning();
 
   return c.json({ entry, alreadyInLibrary: false }, 201);

@@ -20,6 +20,8 @@ type LibraryFilter = {
   label: string;
   /** Null means "no filter" — the All tab. */
   match: string[] | null;
+  /** Entries with both sync flags off, regardless of anilistStatus. */
+  untracked?: boolean;
 };
 
 const FILTERS: LibraryFilter[] = [
@@ -29,6 +31,7 @@ const FILTERS: LibraryFilter[] = [
   { key: "completed", label: "Completed", match: ["COMPLETED"] },
   { key: "paused", label: "Paused", match: ["PAUSED"] },
   { key: "dropped", label: "Dropped", match: ["DROPPED"] },
+  { key: "untracked", label: "Untracked", match: null, untracked: true },
 ];
 
 export default async function LibraryPage({
@@ -56,6 +59,9 @@ export default async function LibraryPage({
   ]);
 
   const applyFilter = (filter: LibraryFilter) => {
+    if (filter.untracked) {
+      return entries.filter((e) => !e.syncAnilist && !e.syncMal);
+    }
     const match = filter.match;
     if (match === null) return entries;
     return entries.filter(
