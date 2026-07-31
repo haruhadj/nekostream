@@ -43,6 +43,13 @@
       "when": 1785342371921,
       "tag": "0005_nifty_nightcrawler",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1785467012482,
+      "tag": "0006_pale_proemial_gods",
+      "breakpoints": true
     }
   ]
 }

@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { OAuthButton } from "@/components/oauth-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SiteHeader } from "@/components/site-header";
+import { StremioInstall } from "@/components/stremio-install";
 import { auth } from "@/lib/auth";
 
 /** Error codes better-auth appends to the callback URL when linking fails. */
@@ -100,6 +101,16 @@ export default async function SettingsPage({
               />
             </div>
           )}
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-edge bg-surface/50 p-6">
+          <h2 className="text-sm font-semibold">Stremio</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Install this addon to browse your library in Stremio and play the
+            Nyaa releases NekoStream has scraped. New episodes appear as the
+            poller finds them — no reinstall needed.
+          </p>
+          <StremioInstall />
         </section>
 
         <section className="mt-10 border-t border-edge pt-8">

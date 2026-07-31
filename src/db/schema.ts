@@ -247,3 +247,26 @@ export const episode = sqliteTable(
     index("episode_entry_number_idx").on(t.libraryEntryId, t.episodeNumber),
   ]
 );
+
+/**
+ * The bearer token that lets Stremio reach a user's library. Stremio cannot
+ * send session cookies, so the addon URL carries this secret in its path.
+ * One live token per user; rotating replaces the row's token in place.
+ */
+export const stremioToken = sqliteTable(
+  "stremio_token",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    token: text("token").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .$defaultFn(() => new Date())
+      .notNull(),
+  },
+  (t) => [
+    uniqueIndex("stremio_token_user_idx").on(t.userId),
+    uniqueIndex("stremio_token_token_idx").on(t.token),
+  ]
+);

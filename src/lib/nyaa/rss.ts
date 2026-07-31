@@ -22,7 +22,7 @@ export type NyaaRelease = ParsedTitle & {
 };
 
 /** Public trackers Nyaa itself lists on its magnet links. */
-const TRACKERS = [
+export const TRACKERS = [
   "http://nyaa.tracker.wf:7777/announce",
   "udp://open.stealth.si:80/announce",
   "udp://tracker.opentrackr.org:1337/announce",

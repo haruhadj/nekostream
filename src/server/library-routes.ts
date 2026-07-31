@@ -22,6 +22,11 @@ import {
 } from "@/lib/sync/tracker-entry";
 import { discoverFilters } from "@/lib/nyaa/discover";
 import { NyaaFetchError } from "@/lib/nyaa/rss";
+import {
+  getOrCreateStremioToken,
+  rotateStremioToken,
+  stremioManifestUrl,
+} from "@/server/stremio-routes";
 
 type Env = { Variables: { userId: string } };
 
@@ -121,6 +126,22 @@ libraryRoutes.post("/", async (c) => {
 
 /** Skip a re-import when one ran recently, unless the caller forces it. */
 const SYNC_THROTTLE_MS = 5 * 60_000;
+
+/**
+ * The Stremio addon's secret, and the URL to install it from.
+ *
+ * Declared with the other literal paths, ahead of the "/:id" routes — Hono
+ * matches in order and would otherwise read these as an entry id.
+ */
+libraryRoutes.get("/stremio-token", async (c) => {
+  const token = await getOrCreateStremioToken(c.get("userId"));
+  return c.json({ token, url: stremioManifestUrl(token, c.req.url) });
+});
+
+libraryRoutes.post("/stremio-token/rotate", async (c) => {
+  const token = await rotateStremioToken(c.get("userId"));
+  return c.json({ token, url: stremioManifestUrl(token, c.req.url) });
+});
 
 /**
  * Mirrors the user's AniList lists into the local library. The library page
