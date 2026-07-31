@@ -123,6 +123,7 @@ stremioRoutes.get("/:token/manifest.json", (c) =>
       extra: [
         { name: "genre", options: SORT_LABELS, isRequired: false },
         { name: "search", isRequired: false },
+        { name: "skip", isRequired: false },
       ],
     })),
     behaviorHints: { configurable: false },
@@ -139,10 +140,25 @@ function toMetaPreview(entry: typeof libraryEntry.$inferSelect) {
   };
 }
 
+type CatalogExtra = {
+  search: string | null;
+  genre: string | null;
+  skip: string | null;
+};
+
+/** Stremio's own page size — it advances skip in steps of 100. */
+const PAGE_SIZE = 100;
+
+/** Anything unparseable means "first page" rather than an error. */
+function parseSkip(raw: string | null) {
+  const skip = Number(raw);
+  return Number.isInteger(skip) && skip > 0 ? skip : 0;
+}
+
 async function catalog(
   userId: string,
   catalogKey: string,
-  { search, genre }: { search: string | null; genre: string | null }
+  { search, genre, skip }: CatalogExtra
 ) {
   const filter = FILTERS.find((f) => catalogId(f.key) === catalogKey);
   if (!filter) return null;
@@ -161,7 +177,12 @@ async function catalog(
 
   const sort = SORTS.find((s) => s.label === genre)?.key ?? DEFAULT_SORT;
 
-  return sortEntries(applyFilter(matched, filter), sort).map(toMetaPreview);
+  // Filter and sort span the whole library before slicing, so page 2 is
+  // genuinely the next 100 in that order rather than a re-sorted chunk.
+  const ordered = sortEntries(applyFilter(matched, filter), sort);
+  const offset = parseSkip(skip);
+
+  return ordered.slice(offset, offset + PAGE_SIZE).map(toMetaPreview);
 }
 
 stremioRoutes.get("/:token/catalog/series/:catalog", async (c) => {
@@ -169,11 +190,12 @@ stremioRoutes.get("/:token/catalog/series/:catalog", async (c) => {
   const metas = await catalog(c.get("userId"), key, {
     search: null,
     genre: null,
+    skip: null,
   });
   return metas ? c.json({ metas }) : c.json({ error: "Unknown catalog." }, 404);
 });
 
-// Stremio appends extras as a path segment: .../<catalog>/genre=Last%20updated.json
+// Stremio appends extras as a path segment: .../<catalog>/genre=Last%20updated&skip=100.json
 stremioRoutes.get("/:token/catalog/series/:catalog/:extra", async (c) => {
   const extra = new URLSearchParams(
     decodeURIComponent(c.req.param("extra")).replace(/\.json$/, "")
@@ -181,6 +203,7 @@ stremioRoutes.get("/:token/catalog/series/:catalog/:extra", async (c) => {
   const metas = await catalog(c.get("userId"), c.req.param("catalog"), {
     search: extra.get("search"),
     genre: extra.get("genre"),
+    skip: extra.get("skip"),
   });
   return metas ? c.json({ metas }) : c.json({ error: "Unknown catalog." }, 404);
 });
