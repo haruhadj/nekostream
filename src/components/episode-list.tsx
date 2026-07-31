@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiSend } from "@/lib/client/request";
+
 import { useProgress } from "@/components/progress-control";
 import { formatBytes, formatRelative } from "@/lib/format";
 
@@ -37,25 +39,27 @@ export function EpisodeList({
   async function refresh() {
     setRefreshing(true);
     setMessage(null);
-    try {
-      const res = await fetch(`/api/library/${entryId}/refresh`, {
-        method: "POST",
-      });
-      const json = await res.json();
 
-      if (!res.ok) {
-        setMessage(json.error ?? "Refresh failed.");
+    try {
+      const result = await apiSend<{ added: number }>(
+        `/api/library/${entryId}/refresh`,
+        "POST",
+        undefined,
+        { fallbackError: "Refresh failed." }
+      );
+
+      if (!result.ok) {
+        setMessage(result.error);
         return;
       }
 
+      const { added } = result.data;
       setMessage(
-        json.added === 0
+        added === 0
           ? "No new episodes."
-          : `Added ${json.added} new ${json.added === 1 ? "release" : "releases"}.`
+          : `Added ${added} new ${added === 1 ? "release" : "releases"}.`
       );
       router.refresh();
-    } catch {
-      setMessage("Could not reach the server.");
     } finally {
       setRefreshing(false);
     }

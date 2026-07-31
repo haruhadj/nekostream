@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiRequest, apiSend } from "@/lib/client/request";
 import type { DiscoveryResult } from "@/lib/nyaa/discover";
 import type { SavedFilter } from "@/lib/nyaa/filter";
 
@@ -41,34 +42,36 @@ export function NyaaFilterSetup({
     setProbing(true);
     setError(null);
     try {
-      const res = await fetch(
-        `/api/library/${entryId}/discover?q=${encodeURIComponent(searchTitle)}`
+      const result = await apiRequest<DiscoveryResult>(
+        `/api/library/${entryId}/discover?q=${encodeURIComponent(searchTitle)}`,
+        { fallbackError: "Could not search Nyaa." }
       );
-      const json = await res.json();
-      if (!res.ok) {
-        setError(json.error ?? "Could not search Nyaa.");
+
+      if (!result.ok) {
+        setError(result.error);
         return;
       }
 
-      setDiscovery(json);
+      const discovered = result.data;
+      setDiscovery(discovered);
+
       // Only preselect when the user hasn't already chosen.
-      setQuality((q) => q ?? json.defaultQuality);
+      setQuality((q) => q ?? discovered.defaultQuality);
       setGroup(
         (g) =>
           g ??
-          json.groups.find((x: { recommended: boolean }) => x.recommended)
-            ?.releaseGroup ??
+          discovered.groups.find((x) => x.recommended)?.releaseGroup ??
           null
       );
-    } catch {
-      setError("Could not reach the server.");
     } finally {
       setProbing(false);
     }
   }
 
-  // Probe once on open so the picker is never empty.
+  // Probe once on open so the picker is never empty. This is a fetch on mount,
+  // which is exactly what an effect is for.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void probe(title);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -79,26 +82,36 @@ export function NyaaFilterSetup({
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch(`/api/library/${entryId}/filter`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const saved = await apiSend(
+        `/api/library/${entryId}/filter`,
+        "PUT",
+        {
           query: composedQuery,
           category: savedFilter?.category ?? "1_2",
           filter: savedFilter?.filter ?? "0",
           releaseGroup: group,
           quality,
-        }),
-      });
+        },
+        { fallbackError: "Could not save the filter." }
+      );
 
-      if (!res.ok) {
-        setError((await res.json()).error ?? "Could not save the filter.");
+      if (!saved.ok) {
+        setError(saved.error);
         return;
       }
 
       // Populate the episode list straight away — saving a feed with no
-      // episodes behind it would look broken.
-      await fetch(`/api/library/${entryId}/refresh`, { method: "POST" });
+      // episodes behind it would look broken. A failure here is worth saying
+      // out loud: the feed saved but the list will look empty until a manual
+      // refresh. Previously the response was discarded entirely.
+      const refreshed = await apiSend(
+        `/api/library/${entryId}/refresh`,
+        "POST",
+        undefined,
+        { fallbackError: "Saved, but could not load episodes yet." }
+      );
+
+      if (!refreshed.ok) setError(refreshed.error);
 
       router.refresh();
       onDone?.();

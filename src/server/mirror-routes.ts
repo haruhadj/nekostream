@@ -14,7 +14,6 @@ import {
   type AniListItem,
   type MalItem,
   type MirrorRow,
-  type MirrorStatus,
 } from "@/lib/sync/mirror";
 import {
   writeAniListEntry,

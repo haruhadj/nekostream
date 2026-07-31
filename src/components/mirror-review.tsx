@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { apiRequest, apiSend } from "@/lib/client/request";
 import type { Serialized } from "@/lib/json";
 import type {
   MirrorPlan,
@@ -40,21 +41,18 @@ export function MirrorReview() {
 
   async function scan() {
     setPhase({ kind: "scanning" });
-    try {
-      const res = await fetch("/api/mirror");
-      const json = await res.json();
-      if (!res.ok) {
-        setPhase({
-          kind: "error",
-          message: json.error ?? "Could not compare.",
-        });
-        return;
-      }
-      setChoices({});
-      setPhase({ kind: "reviewing", plan: json as Plan });
-    } catch {
-      setPhase({ kind: "error", message: "Could not reach the server." });
+
+    const result = await apiRequest<Plan>("/api/mirror", {
+      fallbackError: "Could not compare.",
+    });
+
+    if (!result.ok) {
+      setPhase({ kind: "error", message: result.error });
+      return;
     }
+
+    setChoices({});
+    setPhase({ kind: "reviewing", plan: result.data });
   }
 
   async function apply(plan: Plan) {
@@ -65,21 +63,20 @@ export function MirrorReview() {
     if (decisions.length === 0) return;
 
     setPhase({ kind: "applying", plan });
-    try {
-      const res = await fetch("/api/mirror/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setPhase({ kind: "error", message: json.error ?? "Could not apply." });
-        return;
-      }
-      setPhase({ kind: "done", plan, result: json as ApplyResult });
-    } catch {
-      setPhase({ kind: "error", message: "Could not reach the server." });
+
+    const result = await apiSend<ApplyResult>(
+      "/api/mirror/apply",
+      "POST",
+      { decisions },
+      { fallbackError: "Could not apply." }
+    );
+
+    if (!result.ok) {
+      setPhase({ kind: "error", message: result.error });
+      return;
     }
+
+    setPhase({ kind: "done", plan, result: result.data });
   }
 
   function setAll(plan: Plan, value: Choice | "suggestion") {

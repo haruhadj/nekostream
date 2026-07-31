@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 
 import { PROVIDER_LABEL, PROVIDERS, type Provider } from "@/lib/providers";
 import type { MirrorStatus as Status } from "@/lib/sync/mirror";
+import { apiRequest, apiSend } from "@/lib/client/request";
 import type { TrackerEntry } from "@/lib/sync/tracker-entry";
 
 /** "both" edits one set of values and writes it to each tracker in turn. */
@@ -171,20 +172,19 @@ function TrackerDialog({
   useEffect(() => {
     let cancelled = false;
 
-    (async () => {
+    void (async () => {
       const loaded: Partial<Record<Provider, TrackerEntry>> = {};
       const errors: Partial<Record<Provider, string>> = {};
 
       await Promise.all(
         providers.map(async (p) => {
-          try {
-            const res = await fetch(`/api/library/${entryId}/tracker/${p}`);
-            const json = await res.json();
-            if (res.ok) loaded[p] = json.tracker as TrackerEntry;
-            else errors[p] = json.error ?? "Could not read this tracker.";
-          } catch {
-            errors[p] = "Could not reach the server.";
-          }
+          const result = await apiRequest<{ tracker: TrackerEntry }>(
+            `/api/library/${entryId}/tracker/${p}`,
+            { fallbackError: "Could not read this tracker." }
+          );
+
+          if (result.ok) loaded[p] = result.data.tracker;
+          else errors[p] = result.error;
         })
       );
 
@@ -254,17 +254,14 @@ function TrackerDialog({
     const errors: Partial<Record<Provider, string>> = {};
 
     for (const p of providers) {
-      try {
-        const res = await fetch(`/api/library/${entryId}/tracker/${p}`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
-        });
-        const json = await res.json();
-        if (!res.ok) errors[p] = json.error ?? "Could not save.";
-      } catch {
-        errors[p] = "Could not reach the server.";
-      }
+      const result = await apiSend(
+        `/api/library/${entryId}/tracker/${p}`,
+        "PUT",
+        form,
+        { fallbackError: "Could not save." }
+      );
+
+      if (!result.ok) errors[p] = result.error;
     }
 
     // One tracker failing must not discard the write that did land, so the
@@ -286,11 +283,18 @@ function TrackerDialog({
             ? { syncAnilist: sync }
             : { syncMal: sync };
 
-      await fetch(`/api/library/${entryId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(flags),
-      }).catch(() => {});
+      // A failure here used to be swallowed by a bare .catch, so the toggle
+      // could appear to stick while the entry kept its old setting.
+      const result = await apiSend(`/api/library/${entryId}`, "PATCH", flags, {
+        fallbackError: "Could not change the sync setting.",
+      });
+
+      if (!result.ok) {
+        setFailures({ [providers[0]]: result.error });
+        setSaving(false);
+        router.refresh();
+        return;
+      }
     }
 
     router.refresh();

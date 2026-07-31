@@ -4,6 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
+import { apiSend } from "@/lib/client/request";
+
+type SyncResponse = { added: number; skipped: number; total: number };
+
 type State =
   | { kind: "idle" }
   | { kind: "running" }
@@ -30,32 +34,32 @@ export function AniListSync({ firstRun }: { firstRun: boolean }) {
     if (started.current) return;
     started.current = true;
 
-    (async () => {
+    void (async () => {
       setState({ kind: "running" });
 
-      try {
-        const res = await fetch("/api/library/sync", { method: "POST" });
-        const json = await res.json();
+      const result = await apiSend<SyncResponse>(
+        "/api/library/sync",
+        "POST",
+        undefined,
+        { fallbackError: "Could not reach AniList." }
+      );
 
-        if (!res.ok) {
-          setState({
-            kind: "failed",
-            message: json.error ?? "Could not reach AniList.",
-            // A 401 means the AniList token is gone or expired — no amount of
-            // retrying fixes that, so point at where it can be reconnected.
-            needsAuth: res.status === 401,
-          });
-          return;
-        }
+      if (!result.ok) {
+        setState({
+          kind: "failed",
+          message: result.error,
+          // A 401 means the AniList token is gone or expired — no amount of
+          // retrying fixes that, so point at where it can be reconnected.
+          needsAuth: result.status === 401,
+        });
+        return;
+      }
 
-        if (json.added > 0) {
-          setState({ kind: "added", count: json.added });
-          router.refresh();
-        } else {
-          setState({ kind: "idle" });
-        }
-      } catch {
-        setState({ kind: "failed", message: "Could not reach the server." });
+      if (result.data.added > 0) {
+        setState({ kind: "added", count: result.data.added });
+        router.refresh();
+      } else {
+        setState({ kind: "idle" });
       }
     })();
   }, [router]);

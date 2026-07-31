@@ -33,6 +33,8 @@ function useNow() {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {
+    // Reading the clock on mount is the whole point of this hook; see above.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(id);

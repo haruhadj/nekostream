@@ -38,8 +38,12 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [query, setQuery] = useState("");
 
+  // localStorage does not exist during the server render, so the stored sort
+  // can only be applied after mount. A lazy initializer would read it during
+  // hydration and mismatch the server's markup.
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isSortKey(stored)) setSort(stored);
   }, []);
 
@@ -49,7 +53,9 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
     // session, it just won't survive a reload.
     try {
       window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {}
+    } catch {
+      // Nothing to recover: the sort is already applied in memory.
+    }
   }
 
   const sorted = useMemo(() => sortEntries(entries, sort), [entries, sort]);

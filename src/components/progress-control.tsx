@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiSend } from "@/lib/client/request";
 import { PROVIDER_LABEL } from "@/lib/providers";
 import type { SyncOutcome } from "@/lib/sync/progress";
 
@@ -58,24 +59,21 @@ export function ProgressProvider({
       setOutcomes(null);
 
       try {
-        const res = await fetch(`/api/library/${entryId}/progress`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ progress: clamped }),
-        });
-        const json = await res.json();
+        const result = await apiSend<{ sync?: SyncOutcome[] }>(
+          `/api/library/${entryId}/progress`,
+          "PUT",
+          { progress: clamped },
+          { fallbackError: "Could not save progress." }
+        );
 
-        if (!res.ok) {
+        if (!result.ok) {
           setProgressState(previous);
-          setError(json.error ?? "Could not save progress.");
+          setError(result.error);
           return;
         }
 
-        setOutcomes(json.sync ?? []);
+        setOutcomes(result.data.sync ?? []);
         router.refresh();
-      } catch {
-        setProgressState(previous);
-        setError("Could not reach the server.");
       } finally {
         setSaving(false);
       }

@@ -3,6 +3,8 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { apiRequest, apiSend } from "@/lib/client/request";
+
 import type { AniListMedia } from "@/lib/anilist/queries";
 import { stripHtml } from "@/lib/format";
 
@@ -41,19 +43,17 @@ export function SearchBrowser({
     const timer = setTimeout(() => {
       startSearch(async () => {
         setError(null);
-        try {
-          const res = await fetch(
-            `/api/anilist/search?q=${encodeURIComponent(trimmed)}`
-          );
-          const json = await res.json();
-          if (!res.ok) {
-            setError(json.error ?? "Search failed.");
-            return;
-          }
-          setMedia(json.media ?? []);
-        } catch {
-          setError("Search failed. Check your connection.");
+        const result = await apiRequest<{ media?: AniListMedia[] }>(
+          `/api/anilist/search?q=${encodeURIComponent(trimmed)}`,
+          { fallbackError: "Search failed." }
+        );
+
+        if (!result.ok) {
+          setError(result.error);
+          return;
         }
+
+        setMedia(result.data.media ?? []);
       });
     }, 350);
 
@@ -63,22 +63,25 @@ export function SearchBrowser({
   async function addToLibrary(item: AniListMedia) {
     setAddStates((s) => ({ ...s, [item.id]: "adding" }));
 
-    const res = await fetch("/api/library", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
+    // Previously an unguarded fetch: a dropped connection threw here instead
+    // of leaving the card in a recoverable state.
+    const result = await apiSend(
+      "/api/library",
+      "POST",
+      {
         anilistMediaId: item.id,
         malMediaId: item.idMal,
         titleRomaji: item.title.romaji,
         titleEnglish: item.title.english,
         coverImageUrl: item.coverImage?.large ?? null,
         totalEpisodes: item.episodes,
-      }),
-    });
+      },
+      { fallbackError: "Could not add that title." }
+    );
 
-    if (!res.ok) {
+    if (!result.ok) {
       setAddStates((s) => ({ ...s, [item.id]: "idle" }));
-      setError("Could not add that title.");
+      setError(result.error);
       return;
     }
 
