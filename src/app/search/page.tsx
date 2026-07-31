@@ -32,9 +32,11 @@ export default async function SearchPage() {
     <>
       <SiteHeader active="search" />
 
-      <main className="mx-auto w-full max-w-5xl px-6 py-10">
-        <h1 className="text-2xl font-semibold tracking-tight">Search</h1>
-        <p className="mt-2 text-sm text-muted">
+      <main className="pb-tabbar mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
+        <h1 className="text-3xl font-semibold tracking-tight sm:text-2xl">
+          Search
+        </h1>
+        <p className="mt-2 text-sm leading-relaxed text-muted">
           Results come from AniList. Adding a title saves it to this server.
         </p>
 

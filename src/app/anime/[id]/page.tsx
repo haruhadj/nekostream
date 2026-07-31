@@ -82,12 +82,12 @@ export default async function AnimeDetailPage({
     <>
       <SiteHeader />
 
-      <main className="mx-auto w-full max-w-4xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className="pb-tabbar mx-auto w-full max-w-4xl px-4 pt-4 sm:px-6 sm:pt-8">
         <Link
           href="/"
-          className="text-xs text-muted transition-colors hover:text-cream"
+          className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-full px-2 text-xs text-muted transition-colors hover:text-cream"
         >
-          ← Library
+          <span aria-hidden="true">←</span> Library
         </Link>
 
         <ProgressProvider
@@ -95,8 +95,10 @@ export default async function AnimeDetailPage({
           initialProgress={entry.progress}
           totalEpisodes={entry.totalEpisodes}
         >
-        <div className="mt-5 flex flex-col gap-6 sm:flex-row">
-          <div className="w-36 shrink-0 overflow-hidden rounded-xl border border-edge bg-surface">
+        {/* Cover beside the title even on a phone: stacking pushed everything
+            that matters — progress, sync, episodes — below the fold. */}
+        <div className="mt-3 flex flex-row gap-4 sm:mt-5 sm:gap-6">
+          <div className="w-28 shrink-0 self-start overflow-hidden rounded-2xl border border-edge bg-surface shadow-xl shadow-ink/60 ring-1 ring-inset ring-white/5 sm:w-36">
             {entry.coverImageUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -108,7 +110,7 @@ export default async function AnimeDetailPage({
           </div>
 
           <div className="min-w-0 flex-1">
-            <h1 className="text-2xl font-semibold leading-tight tracking-tight text-balance">
+            <h1 className="text-xl font-semibold leading-tight tracking-tight text-balance sm:text-2xl">
               {entry.titleEnglish ?? entry.titleRomaji}
             </h1>
             {entry.titleEnglish ? (
@@ -116,7 +118,16 @@ export default async function AnimeDetailPage({
             ) : null}
 
             {genres.length > 0 ? (
-              <p className="mt-2 text-xs text-muted">{genres.join(" · ")}</p>
+              <ul className="mt-2.5 flex flex-wrap gap-1.5">
+                {genres.map((genre) => (
+                  <li
+                    key={genre}
+                    className="rounded-full border border-edge bg-surface/50 px-2.5 py-0.5 text-[11px] text-muted"
+                  >
+                    {genre}
+                  </li>
+                ))}
+              </ul>
             ) : null}
 
             {nextAiring ? (
@@ -126,17 +137,20 @@ export default async function AnimeDetailPage({
                 polling={filter !== undefined}
               />
             ) : null}
-
-            <div className="mt-4 flex flex-col gap-3">
-              <ProgressControl />
-              <TrackerEditors
-                entryId={entry.id}
-                malAvailable={malAccounts.length > 0 && entry.malMediaId !== null}
-                syncAnilist={entry.syncAnilist}
-                syncMal={entry.syncMal}
-              />
-            </div>
           </div>
+        </div>
+
+        {/* Full width rather than beside the cover: the controls are the reason
+            this page gets opened, and the column left of them is ~200px wide on
+            a phone. */}
+        <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-edge bg-surface/30 p-4">
+          <ProgressControl />
+          <TrackerEditors
+            entryId={entry.id}
+            malAvailable={malAccounts.length > 0 && entry.malMediaId !== null}
+            syncAnilist={entry.syncAnilist}
+            syncMal={entry.syncMal}
+          />
         </div>
 
         {description ? (

@@ -11,6 +11,10 @@
   /* Provider brand marks */
   --anilist: #02a9ff;
   --mal: #2e51a2;
+
+  /* Height of the phone tab bar, excluding the home-indicator inset. Pages
+     reserve this space so the fixed bar never covers the last row. */
+  --tabbar: 4.25rem;
 }
 
 @theme inline {
@@ -26,10 +30,66 @@
 }
 
 body {
-  background: var(--ink);
+  background-color: var(--ink);
   color: var(--cream);
   font-family: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
+
+  /* Two soft pools of colour behind everything, fixed so scrolling doesn't
+     drag them around. Depth without an image request. */
+  background-image:
+    radial-gradient(
+      70rem 40rem at 15% -10%,
+      color-mix(in oklab, var(--anilist) 14%, transparent),
+      transparent 60%
+    ),
+    radial-gradient(
+      55rem 35rem at 100% 0%,
+      color-mix(in oklab, #a855f7 12%, transparent),
+      transparent 55%
+    );
+  background-attachment: fixed;
+  background-repeat: no-repeat;
+
+  /* Touch behaviour: no grey flash on tap, no rubber-banding the page behind
+     a scrolling panel. */
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior-y: none;
+}
+
+/* Horizontal chip rows are swiped on a phone; the scrollbar is just noise. */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* Frosted bars — the sticky header and the phone tab bar. */
+.glass {
+  background-color: color-mix(in oklab, var(--ink) 72%, transparent);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+}
+
+/* Clears the fixed phone tab bar so the last row of a page stays reachable.
+   Collapses to ordinary page padding at sm, where the bar is hidden. */
+.pb-tabbar {
+  padding-bottom: calc(var(--tabbar) + env(safe-area-inset-bottom) + 1rem);
+}
+@media (min-width: 40rem) {
+  .pb-tabbar {
+    padding-bottom: 2.5rem;
+  }
+}
+
+/* Snap the swipeable chip row so a filter never rests half off-screen. */
+.snap-chips {
+  scroll-snap-type: x proximity;
+}
+.snap-chips > * {
+  scroll-snap-align: start;
 }
 
 @media (prefers-reduced-motion: reduce) {

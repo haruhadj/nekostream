@@ -70,10 +70,12 @@ export default async function LibraryPage({
     <>
       <SiteHeader active="library" />
 
-      <main className="mx-auto w-full max-w-5xl px-4 py-8 sm:px-6 sm:py-10">
+      <main className="pb-tabbar mx-auto w-full max-w-5xl px-4 pt-6 sm:px-6 sm:pt-10">
         <div className="flex items-baseline justify-between gap-4">
-          <h1 className="text-2xl font-semibold tracking-tight">Library</h1>
-          <p className="text-sm text-muted">
+          <h1 className="text-3xl font-semibold tracking-tight sm:text-2xl">
+            Library
+          </h1>
+          <p className="text-sm text-muted tabular-nums">
             {visible.length} {visible.length === 1 ? "title" : "titles"}
           </p>
         </div>
@@ -81,25 +83,37 @@ export default async function LibraryPage({
         <AniListSync firstRun={neverSynced} />
 
         {entries.length > 0 ? (
-          <nav className="-mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
+          // Full-bleed and swipeable on a phone: six filters never fit across a
+          // 360px screen, and a wrapped grid of chips eats the fold.
+          <nav className="no-scrollbar snap-chips -mx-4 mt-5 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:px-0">
             {FILTERS.map((filter) => {
               const count = countFor(filter);
               if (count === 0 && filter.key !== "all") return null;
+
+              const isActive = filter.key === active.key;
 
               return (
                 <Link
                   key={filter.key}
                   href={filter.key === "all" ? "/" : `/?status=${filter.key}`}
-                  aria-current={filter.key === active.key ? "page" : undefined}
+                  aria-current={isActive ? "page" : undefined}
                   className={[
-                    "shrink-0 rounded-full border px-3.5 py-1.5 text-xs font-medium transition",
-                    filter.key === active.key
-                      ? "border-anilist bg-anilist text-ink"
-                      : "border-edge text-muted hover:bg-surface hover:text-cream",
+                    "flex shrink-0 items-center gap-1.5 rounded-full border px-4 text-xs font-medium",
+                    "min-h-9 transition active:scale-[0.97]",
+                    isActive
+                      ? "border-anilist bg-anilist text-ink shadow-[0_4px_20px_-6px_var(--anilist)]"
+                      : "border-edge bg-surface/40 text-muted hover:bg-surface hover:text-cream",
                   ].join(" ")}
                 >
                   {filter.label}
-                  <span className="ml-1.5 opacity-60">{count}</span>
+                  <span
+                    className={[
+                      "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
+                      isActive ? "bg-ink/20" : "bg-ink/40",
+                    ].join(" ")}
+                  >
+                    {count}
+                  </span>
                 </Link>
               );
             })}
@@ -107,8 +121,8 @@ export default async function LibraryPage({
         ) : null}
 
         {visible.length === 0 ? (
-          <div className="mt-10 rounded-2xl border border-dashed border-edge p-10 text-center">
-            <p className="text-sm text-muted">
+          <div className="mt-10 rounded-3xl border border-dashed border-edge bg-surface/20 px-6 py-12 text-center sm:p-10">
+            <p className="mx-auto max-w-xs text-balance text-sm leading-relaxed text-muted">
               {neverSynced
                 ? "Bringing in your AniList list…"
                 : entries.length > 0
@@ -118,7 +132,7 @@ export default async function LibraryPage({
             {!neverSynced && entries.length === 0 ? (
               <Link
                 href="/search"
-                className="mt-5 inline-block rounded-xl bg-anilist px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110"
+                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-anilist px-6 text-sm font-semibold text-ink transition hover:brightness-110 active:scale-[0.97]"
               >
                 Search anime
               </Link>

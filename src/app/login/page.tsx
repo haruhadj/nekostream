@@ -2,12 +2,16 @@ import { OAuthButton } from "@/components/oauth-button";
 
 export default function LoginPage() {
   return (
-    <main className="flex min-h-dvh items-center justify-center px-6 py-16">
+    <main className="flex min-h-dvh items-center justify-center px-6 py-16 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))]">
       <div className="w-full max-w-sm">
-        <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
+        <p className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
+          <span
+            aria-hidden="true"
+            className="h-2 w-2 rounded-full bg-anilist shadow-[0_0_12px_var(--anilist)]"
+          />
           NekoStream
         </p>
-        <h1 className="mt-4 text-3xl font-semibold leading-tight tracking-tight text-balance">
+        <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-balance sm:text-3xl">
           Your list, your episodes, your server.
         </h1>
         <p className="mt-3 text-sm leading-relaxed text-muted">

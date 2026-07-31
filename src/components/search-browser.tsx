@@ -98,7 +98,8 @@ export function SearchBrowser({
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search anime on AniList"
-        className="w-full rounded-xl border border-edge bg-surface/60 px-4 py-3 text-[15px] placeholder:text-muted focus:border-anilist focus:outline-none"
+        // 16px keeps iOS Safari from zooming the page when the field focuses.
+        className="min-h-12 w-full rounded-full border border-edge bg-surface/60 px-5 text-base placeholder:text-muted focus:border-anilist focus:outline-none"
       />
 
       <p className="mt-3 h-5 text-xs text-muted" aria-live="polite">
@@ -113,7 +114,7 @@ export function SearchBrowser({
         )}
       </p>
 
-      <ul className="mt-4 grid grid-cols-2 gap-x-5 gap-y-8 sm:grid-cols-3 lg:grid-cols-5">
+      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
         {media.map((item) => {
           const added = inLibrary.has(item.id);
           const state = addStates[item.id] ?? "idle";
@@ -123,9 +124,9 @@ export function SearchBrowser({
               <button
                 type="button"
                 onClick={() => setPreview(item)}
-                className="group block w-full text-left"
+                className="group block w-full text-left transition active:scale-[0.97]"
               >
-                <div className="aspect-[2/3] overflow-hidden rounded-xl border border-edge bg-surface">
+                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
                   {item.coverImage?.large ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
@@ -134,9 +135,15 @@ export function SearchBrowser({
                       className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
                     />
                   ) : null}
+
+                  {added ? (
+                    <span className="absolute right-2 top-2 rounded-full bg-anilist px-2 py-0.5 text-[10px] font-semibold text-ink">
+                      In library
+                    </span>
+                  ) : null}
                 </div>
 
-                <p className="mt-3 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
+                <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
                   {item.title.english ?? item.title.romaji}
                 </p>
                 <p className="mt-1 text-xs text-muted">
@@ -149,11 +156,11 @@ export function SearchBrowser({
                 onClick={() => addToLibrary(item)}
                 disabled={added || state === "adding"}
                 className={[
-                  "mt-2 w-full rounded-lg px-3 py-1.5 text-xs font-semibold transition",
+                  "mt-2 min-h-10 w-full rounded-full px-3 text-xs font-semibold transition",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
                   added
                     ? "cursor-default border border-edge text-muted"
-                    : "bg-anilist text-ink hover:brightness-110 disabled:opacity-60",
+                    : "bg-anilist text-ink hover:brightness-110 active:scale-[0.97] disabled:opacity-60",
                 ].join(" ")}
               >
                 {added ? "In library" : state === "adding" ? "Adding…" : "Add"}
@@ -170,17 +177,29 @@ export function SearchBrowser({
       ) : null}
 
       {preview ? (
+        // A sheet rising from the bottom edge on phones, a centred dialog once
+        // there is room — the same markup, different anchoring.
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          className="fixed inset-0 z-50 flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center sm:p-4"
           onClick={() => setPreview(null)}
         >
           <div
             role="dialog"
             aria-modal="true"
             onClick={(e) => e.stopPropagation()}
-            className="flex max-h-[85vh] w-full max-w-xl flex-col gap-5 overflow-y-auto rounded-2xl border border-edge bg-surface p-6 sm:flex-row"
+            className={[
+              "flex w-full max-w-xl flex-col gap-5 overflow-y-auto border border-edge bg-surface",
+              "max-h-[88vh] rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
+              "sm:max-h-[85vh] sm:flex-row sm:rounded-2xl sm:p-6 sm:pb-6",
+            ].join(" ")}
           >
-            <div className="w-32 shrink-0 overflow-hidden rounded-xl border border-edge bg-ink sm:w-40">
+            {/* Grab handle — the affordance that says "swipe or tap away". */}
+            <span
+              aria-hidden="true"
+              className="mx-auto -mt-1 h-1 w-10 shrink-0 rounded-full bg-edge sm:hidden"
+            />
+
+            <div className="mx-auto w-28 shrink-0 overflow-hidden rounded-xl border border-edge bg-ink sm:mx-0 sm:w-40">
               {preview.coverImage?.large ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -200,7 +219,7 @@ export function SearchBrowser({
                   type="button"
                   onClick={() => setPreview(null)}
                   aria-label="Close"
-                  className="shrink-0 rounded-full p-1 text-muted transition hover:text-cream"
+                  className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/40 hover:text-cream"
                 >
                   ✕
                 </button>
@@ -233,7 +252,7 @@ export function SearchBrowser({
                   (addStates[preview.id] ?? "idle") === "adding"
                 }
                 className={[
-                  "mt-5 w-full rounded-lg px-3 py-2 text-sm font-semibold transition sm:w-auto",
+                  "mt-5 min-h-12 w-full rounded-full px-5 text-sm font-semibold transition sm:min-h-0 sm:w-auto sm:py-2",
                   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream",
                   inLibrary.has(preview.id)
                     ? "cursor-default border border-edge text-muted"

@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -15,6 +15,15 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NekoStream",
   description: "Self-hosted anime tracking, with episodes from Nyaa.si.",
+};
+
+export const viewport: Viewport = {
+  // `cover` lets the layout paint under the notch and home indicator; the
+  // header and tab bar add the safe-area insets back themselves.
+  viewportFit: "cover",
+  themeColor: "#14101f",
+  // Zoom stays available — pinching a cover or a release title is legitimate.
+  maximumScale: 5,
 };
 
 export default function RootLayout({
