@@ -41,13 +41,13 @@ export default async function SettingsPage({
 
   return (
     <>
-      <SiteHeader />
+      <SiteHeader active="settings" />
 
-      <main className="mx-auto w-full max-w-2xl px-6 py-12 sm:py-16">
+      <main className="pb-tabbar mx-auto w-full max-w-2xl px-4 pt-8 sm:px-6 sm:pt-16">
         <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted">
           Settings
         </p>
-        <h1 className="mt-4 text-2xl font-semibold tracking-tight">
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight sm:text-2xl">
           Connected accounts
         </h1>
 
@@ -57,7 +57,7 @@ export default async function SettingsPage({
           </p>
         ) : null}
 
-        <section className="mt-8 rounded-2xl border border-edge bg-surface/50 p-6">
+        <section className="mt-8 rounded-2xl border border-edge bg-surface/50 p-5 sm:p-6">
           <h2 className="text-sm font-semibold">AniList</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {anilistLinked
@@ -76,7 +76,7 @@ export default async function SettingsPage({
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-edge bg-surface/50 p-6">
+        <section className="mt-3 rounded-2xl border border-edge bg-surface/50 p-5 sm:mt-4 sm:p-6">
           <h2 className="text-sm font-semibold">MyAnimeList</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {malLinked
@@ -87,7 +87,7 @@ export default async function SettingsPage({
           {malLinked ? (
             <Link
               href="/settings/mirror"
-              className="mt-5 inline-block rounded-xl border border-edge bg-surface/60 px-4 py-2.5 text-sm font-semibold transition hover:border-anilist/60"
+              className="mt-5 inline-flex min-h-11 items-center rounded-full border border-edge bg-surface/60 px-5 text-sm font-semibold transition hover:border-anilist/60 active:scale-[0.97]"
             >
               Compare both lists →
             </Link>
@@ -103,7 +103,7 @@ export default async function SettingsPage({
           )}
         </section>
 
-        <section className="mt-4 rounded-2xl border border-edge bg-surface/50 p-6">
+        <section className="mt-3 rounded-2xl border border-edge bg-surface/50 p-5 sm:mt-4 sm:p-6">
           <h2 className="text-sm font-semibold">Stremio</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Install this addon to browse your library in Stremio and play the

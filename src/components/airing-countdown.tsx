@@ -61,9 +61,12 @@ export function AiringBadge({
   return (
     <span
       className={[
-        "absolute bottom-1.5 left-1.5 rounded-md px-1.5 py-0.5",
-        "text-[10px] font-semibold tabular-nums backdrop-blur-sm",
-        upcoming ? "bg-ink/75 text-cream" : "bg-anilist/90 text-ink",
+        // Clears the progress bar that runs along the bottom edge of the card.
+        "absolute bottom-2.5 left-2 rounded-full px-2 py-0.5",
+        "text-[10px] font-semibold tabular-nums backdrop-blur-md",
+        upcoming
+          ? "bg-ink/70 text-cream ring-1 ring-inset ring-white/10"
+          : "bg-anilist text-ink",
       ].join(" ")}
     >
       EP {episodeNumber}

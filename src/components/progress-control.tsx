@@ -108,7 +108,7 @@ export function ProgressControl() {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-1 rounded-full border border-edge p-1">
+      <div className="flex items-center gap-1 rounded-full border border-edge bg-ink/40 p-1">
         <StepButton
           label="Decrease progress"
           disabled={saving || progress <= 0}
@@ -117,7 +117,7 @@ export function ProgressControl() {
           –
         </StepButton>
 
-        <span className="min-w-20 text-center text-sm tabular-nums">
+        <span className="min-w-20 text-center text-base font-medium tabular-nums sm:text-sm">
           {progress}
           {totalEpisodes ? (
             <span className="text-muted"> / {totalEpisodes}</span>
@@ -166,7 +166,8 @@ function StepButton({
       aria-label={label}
       disabled={disabled}
       onClick={onClick}
-      className="h-7 w-7 rounded-full text-sm font-semibold transition hover:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream disabled:opacity-40"
+      // 44px on touch, back to a compact 28px once there is a pointer.
+      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
     >
       {children}
     </button>

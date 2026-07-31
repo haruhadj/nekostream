@@ -79,7 +79,7 @@ export function EpisodeList({
             type="button"
             onClick={refresh}
             disabled={refreshing || !hasFilter}
-            className="min-h-11 shrink-0 rounded-lg border border-edge px-4 text-xs font-medium transition hover:bg-surface disabled:opacity-50 sm:min-h-0 sm:py-1.5"
+            className="min-h-10 shrink-0 rounded-full border border-edge px-4 text-xs font-medium transition hover:bg-surface active:scale-[0.97] disabled:opacity-50 sm:min-h-0 sm:py-1.5"
           >
             {refreshing ? "Checking…" : "Refresh"}
           </button>
@@ -93,7 +93,7 @@ export function EpisodeList({
             : "Save a Nyaa feed to build the episode list."}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-edge overflow-hidden rounded-xl border border-edge">
+        <ul className="mt-4 divide-y divide-edge overflow-hidden rounded-2xl border border-edge">
           {episodes.map((ep) => {
             const watched =
               ep.episodeNumber !== null && ep.episodeNumber <= progress;
@@ -111,8 +111,10 @@ export function EpisodeList({
               <div className="flex min-w-0 flex-1 items-start gap-3">
                 <span
                   className={[
-                    "mt-0.5 shrink-0 rounded-md border border-edge px-2 py-1 font-mono text-xs tabular-nums",
-                    watched ? "text-muted" : "text-cream",
+                    "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-mono text-xs tabular-nums",
+                    watched
+                      ? "border-anilist/40 bg-anilist/10 text-anilist"
+                      : "border-edge bg-ink/30 text-cream",
                   ].join(" ")}
                 >
                   {ep.episodeNumber !== null ? ep.episodeNumber : "—"}
@@ -152,7 +154,13 @@ export function EpisodeList({
                     onClick={() =>
                       setProgress(watched ? ep.episodeNumber! - 1 : ep.episodeNumber!)
                     }
-                    className="min-h-11 flex-1 rounded-lg border border-edge px-3 text-xs font-medium text-muted transition hover:bg-surface hover:text-cream disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5"
+                    className={[
+                      "min-h-11 flex-1 rounded-full border px-4 text-xs font-medium transition",
+                      "active:scale-[0.97] disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5",
+                      watched
+                        ? "border-anilist/40 text-anilist"
+                        : "border-edge text-muted hover:bg-surface hover:text-cream",
+                    ].join(" ")}
                   >
                     {watched ? "Watched" : "Mark watched"}
                   </button>
@@ -162,7 +170,7 @@ export function EpisodeList({
                     client, exactly as plan.md asks. */}
                 <a
                   href={ep.magnetUri}
-                  className="flex min-h-11 flex-1 items-center justify-center rounded-lg bg-anilist px-4 text-xs font-semibold text-ink transition hover:brightness-110 sm:min-h-0 sm:flex-none sm:py-1.5"
+                  className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-anilist px-5 text-xs font-semibold text-ink transition hover:brightness-110 active:scale-[0.97] sm:min-h-0 sm:flex-none sm:py-1.5"
                 >
                   Magnet
                 </a>
