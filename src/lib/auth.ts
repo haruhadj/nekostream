@@ -70,6 +70,16 @@ async function fetchMalUser(accessToken: string) {
 export const auth = betterAuth({
   baseURL: env.BETTER_AUTH_URL,
   secret: env.BETTER_AUTH_SECRET,
+  /**
+   * The app is typically reachable on two addresses — a LAN one and the public
+   * https hostname — but only baseURL can own the OAuth redirect. Listing both
+   * keeps requests arriving on the other one from failing the origin check;
+   * sign-in still always round-trips through baseURL, since a session cookie
+   * set on one origin is never sent to the other.
+   */
+  trustedOrigins: [env.BETTER_AUTH_URL, env.PUBLIC_URL].filter(
+    (origin): origin is string => Boolean(origin)
+  ),
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   emailAndPassword: { enabled: false },
   account: {
