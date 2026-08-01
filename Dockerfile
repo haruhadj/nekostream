@@ -47,7 +47,8 @@ RUN groupadd --system --gid 1001 nodejs \
 # Standalone output carries its own traced node_modules.
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
+# No public/ directory: the app serves no static assets of its own. Restore a
+# COPY of it here if any are added — a missing source path fails the build.
 
 # Schema migrations run at startup against the mounted volume.
 COPY --from=builder --chown=nextjs:nodejs /app/drizzle ./drizzle
