@@ -65,24 +65,45 @@ export function parseSizeToBytes(size: string | undefined): number | null {
   return Math.round(Number(match[1]) * multiplier);
 }
 
+/**
+ * The text of one parsed XML value.
+ *
+ * An element carrying attributes arrives as an object with the text under
+ * "#text" rather than as a string, so stringifying it directly would yield
+ * "[object Object]" and quietly poison whatever parsed it next.
+ */
+function asText(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+
+  if (typeof value === "object" && value !== null && "#text" in value) {
+    return asText(value["#text"]);
+  }
+
+  return "";
+}
+
 /** The guid is a permalink: https://nyaa.si/view/2138496 */
 function parseNyaaId(guid: unknown): number | null {
-  const text = typeof guid === "object" && guid !== null
-    ? String((guid as { "#text"?: unknown })["#text"] ?? "")
-    : String(guid ?? "");
-  const match = text.match(/\/view\/(\d+)/);
+  const match = asText(guid).match(/\/view\/(\d+)/);
   return match ? Number(match[1]) : null;
 }
 
 function toNumberOrNull(value: unknown): number | null {
-  if (value === undefined || value === null || value === "") return null;
-  const parsed = Number(value);
+  const text = asText(value);
+  if (text === "") return null;
+
+  const parsed = Number(text);
   return Number.isFinite(parsed) ? parsed : null;
 }
 
 function toDateOrNull(value: unknown): Date | null {
-  if (!value) return null;
-  const date = new Date(String(value));
+  const text = asText(value);
+  if (text === "") return null;
+
+  const date = new Date(text);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
@@ -106,8 +127,8 @@ export function parseRssFeed(xml: string): NyaaRelease[] {
   const items = Array.isArray(rawItems) ? rawItems : [rawItems];
 
   return items.flatMap((item): NyaaRelease[] => {
-    const rawTitle = String(item.title ?? "").trim();
-    const infoHash = String(item["nyaa:infoHash"] ?? "").trim();
+    const rawTitle = asText(item.title).trim();
+    const infoHash = asText(item["nyaa:infoHash"]).trim();
     const nyaaId = parseNyaaId(item.guid);
 
     // Without an id or hash there's nothing stable to key on or link to.
@@ -119,9 +140,7 @@ export function parseRssFeed(xml: string): NyaaRelease[] {
         rawTitle,
         infoHash,
         magnetUri: buildMagnetUri(infoHash, rawTitle),
-        sizeBytes: parseSizeToBytes(
-          item["nyaa:size"] === undefined ? undefined : String(item["nyaa:size"])
-        ),
+        sizeBytes: parseSizeToBytes(asText(item["nyaa:size"])),
         seeders: toNumberOrNull(item["nyaa:seeders"]),
         leechers: toNumberOrNull(item["nyaa:leechers"]),
         publishedAt: toDateOrNull(item.pubDate),

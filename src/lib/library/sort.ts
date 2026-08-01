@@ -5,12 +5,7 @@
  */
 
 export type SortKey =
-  | "title-asc"
-  | "title-desc"
-  | "updated"
-  | "added"
-  | "progress"
-  | "remaining";
+  "title-asc" | "title-desc" | "updated" | "added" | "progress" | "remaining";
 
 export type SortableEntry = {
   titleRomaji: string;
@@ -97,6 +92,8 @@ export function sortEntries<T extends SortableEntry>(
     case "progress":
       return sorted.sort((a, b) => b.progress - a.progress || byTitle(a, b));
     case "remaining":
-      return sorted.sort((a, b) => remaining(b) - remaining(a) || byTitle(a, b));
+      return sorted.sort(
+        (a, b) => remaining(b) - remaining(a) || byTitle(a, b)
+      );
   }
 }

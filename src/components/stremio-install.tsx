@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 
+import { apiRequest, apiSend } from "@/lib/client/request";
+
+type TokenResponse = { token: string; url: string };
+
 type State =
   | { kind: "loading" }
   | { kind: "ready"; url: string }
@@ -20,29 +24,42 @@ export function StremioInstall() {
   const [rotating, setRotating] = useState(false);
 
   useEffect(() => {
-    (async () => {
-      try {
-        const res = await fetch("/api/library/stremio-token");
-        const json = await res.json();
-        if (!res.ok) {
-          setState({ kind: "failed", message: json.error ?? "Could not load the addon URL." });
-          return;
-        }
-        setState({ kind: "ready", url: json.url });
-      } catch {
-        setState({ kind: "failed", message: "Could not reach the server." });
-      }
+    void (async () => {
+      const result = await apiRequest<TokenResponse>(
+        "/api/library/stremio-token",
+        { fallbackError: "Could not load the addon URL." }
+      );
+
+      setState(
+        result.ok
+          ? { kind: "ready", url: result.data.url }
+          : { kind: "failed", message: result.error }
+      );
     })();
   }, []);
 
   async function rotate() {
-    if (!confirm("Rotate the token? Stremio will need the new URL reinstalled.")) return;
+    if (
+      !confirm("Rotate the token? Stremio will need the new URL reinstalled.")
+    )
+      return;
 
     setRotating(true);
     try {
-      const res = await fetch("/api/library/stremio-token/rotate", { method: "POST" });
-      const json = await res.json();
-      if (res.ok) setState({ kind: "ready", url: json.url });
+      const result = await apiSend<TokenResponse>(
+        "/api/library/stremio-token/rotate",
+        "POST",
+        undefined,
+        { fallbackError: "Could not rotate the token." }
+      );
+
+      // A failed rotation used to be swallowed silently, leaving the old URL
+      // on screen with no hint that nothing had happened.
+      setState(
+        result.ok
+          ? { kind: "ready", url: result.data.url }
+          : { kind: "failed", message: result.error }
+      );
     } finally {
       setRotating(false);
     }

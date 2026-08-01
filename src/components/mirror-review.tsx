@@ -2,32 +2,22 @@
 
 import { useMemo, useState } from "react";
 
-type Side = "anilist" | "mal";
+import { apiRequest, apiSend } from "@/lib/client/request";
+import type { Serialized } from "@/lib/json";
+import type {
+  MirrorPlan,
+  MirrorRow,
+  MirrorSide as ServerMirrorSide,
+  Side,
+} from "@/lib/sync/mirror";
+
 type Choice = Side | "skip";
 
-type MirrorSide = {
-  progress: number;
-  status: string | null;
-  updatedAt: string | null;
-};
-
-type Row = {
-  key: string;
-  title: string;
-  anilistMediaId: number | null;
-  malMediaId: number | null;
-  totalEpisodes: number | null;
-  anilist: MirrorSide | null;
-  mal: MirrorSide | null;
-  differences: string[];
-  suggestion: Side;
-};
-
-type Plan = {
-  rows: Row[];
-  inSyncCount: number;
-  unmappable: { title: string; anilistMediaId: number }[];
-};
+// The plan as it arrives over HTTP: identical to the server's, except that its
+// updatedAt Dates have been through JSON.stringify.
+type MirrorSide = Serialized<ServerMirrorSide>;
+type Row = Serialized<MirrorRow>;
+type Plan = Serialized<MirrorPlan>;
 
 type ApplyResult = {
   applied: number;
@@ -51,18 +41,18 @@ export function MirrorReview() {
 
   async function scan() {
     setPhase({ kind: "scanning" });
-    try {
-      const res = await fetch("/api/mirror");
-      const json = await res.json();
-      if (!res.ok) {
-        setPhase({ kind: "error", message: json.error ?? "Could not compare." });
-        return;
-      }
-      setChoices({});
-      setPhase({ kind: "reviewing", plan: json as Plan });
-    } catch {
-      setPhase({ kind: "error", message: "Could not reach the server." });
+
+    const result = await apiRequest<Plan>("/api/mirror", {
+      fallbackError: "Could not compare.",
+    });
+
+    if (!result.ok) {
+      setPhase({ kind: "error", message: result.error });
+      return;
     }
+
+    setChoices({});
+    setPhase({ kind: "reviewing", plan: result.data });
   }
 
   async function apply(plan: Plan) {
@@ -73,21 +63,20 @@ export function MirrorReview() {
     if (decisions.length === 0) return;
 
     setPhase({ kind: "applying", plan });
-    try {
-      const res = await fetch("/api/mirror/apply", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisions }),
-      });
-      const json = await res.json();
-      if (!res.ok) {
-        setPhase({ kind: "error", message: json.error ?? "Could not apply." });
-        return;
-      }
-      setPhase({ kind: "done", plan, result: json as ApplyResult });
-    } catch {
-      setPhase({ kind: "error", message: "Could not reach the server." });
+
+    const result = await apiSend<ApplyResult>(
+      "/api/mirror/apply",
+      "POST",
+      { decisions },
+      { fallbackError: "Could not apply." }
+    );
+
+    if (!result.ok) {
+      setPhase({ kind: "error", message: result.error });
+      return;
     }
+
+    setPhase({ kind: "done", plan, result: result.data });
   }
 
   function setAll(plan: Plan, value: Choice | "suggestion") {
@@ -144,9 +133,7 @@ export function MirrorReview() {
             <BulkButton onClick={() => setAll(plan, "mal")}>
               MAL for all
             </BulkButton>
-            <BulkButton onClick={() => setAll(plan, "skip")}>
-              Clear
-            </BulkButton>
+            <BulkButton onClick={() => setAll(plan, "skip")}>Clear</BulkButton>
           </div>
 
           <ul className="mt-5 space-y-3">
@@ -292,7 +279,9 @@ function SideOption({
           {label}
         </span>
         {suggested ? (
-          <span className="text-[10px] font-medium text-anilist">suggested</span>
+          <span className="text-[10px] font-medium text-anilist">
+            suggested
+          </span>
         ) : null}
       </span>
 
@@ -363,7 +352,7 @@ function PrimaryButton({
       className={[
         "w-full rounded-xl bg-anilist px-5 py-3 text-sm font-semibold text-ink",
         "transition hover:brightness-110 active:translate-y-px",
-        "focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cream",
+        "focus-ring",
         "disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto",
       ].join(" ")}
     >

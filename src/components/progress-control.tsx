@@ -3,13 +3,9 @@
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
 
-type SyncOutcome = {
-  provider: "anilist" | "mal";
-  ok: boolean;
-  skipped?: boolean;
-  reason?: string;
-  error?: string;
-};
+import { apiSend } from "@/lib/client/request";
+import { PROVIDER_LABEL } from "@/lib/providers";
+import type { SyncOutcome } from "@/lib/sync/progress";
 
 type ProgressContextValue = {
   progress: number;
@@ -21,7 +17,19 @@ type ProgressContextValue = {
 
 const ProgressContext = createContext<ProgressContextValue | null>(null);
 
-const PROVIDER_LABEL = { anilist: "AniList", mal: "MyAnimeList" } as const;
+/**
+ * Type guards rather than inline predicates: SyncOutcome is a discriminated
+ * union, and only these variants carry `error` and `reason`. Array.filter does
+ * not narrow on its own.
+ */
+const isFailure = (
+  outcome: SyncOutcome
+): outcome is Extract<SyncOutcome, { ok: false }> => !outcome.ok;
+
+const isSkipped = (
+  outcome: SyncOutcome
+): outcome is Extract<SyncOutcome, { skipped: true }> =>
+  outcome.ok && outcome.skipped === true;
 
 export function ProgressProvider({
   entryId,
@@ -51,24 +59,21 @@ export function ProgressProvider({
       setOutcomes(null);
 
       try {
-        const res = await fetch(`/api/library/${entryId}/progress`, {
-          method: "PUT",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ progress: clamped }),
-        });
-        const json = await res.json();
+        const result = await apiSend<{ sync?: SyncOutcome[] }>(
+          `/api/library/${entryId}/progress`,
+          "PUT",
+          { progress: clamped },
+          { fallbackError: "Could not save progress." }
+        );
 
-        if (!res.ok) {
+        if (!result.ok) {
           setProgressState(previous);
-          setError(json.error ?? "Could not save progress.");
+          setError(result.error);
           return;
         }
 
-        setOutcomes(json.sync ?? []);
+        setOutcomes(result.data.sync ?? []);
         router.refresh();
-      } catch {
-        setProgressState(previous);
-        setError("Could not reach the server.");
       } finally {
         setSaving(false);
       }
@@ -76,8 +81,8 @@ export function ProgressProvider({
     [entryId, progress, router]
   );
 
-  const failures = outcomes?.filter((o) => !o.ok) ?? [];
-  const skipped = outcomes?.filter((o) => o.skipped) ?? [];
+  const failures = outcomes?.filter(isFailure) ?? [];
+  const skipped = outcomes?.filter(isSkipped) ?? [];
   const synced = outcomes?.filter((o) => o.ok && !o.skipped) ?? [];
 
   const status = saving
@@ -85,9 +90,11 @@ export function ProgressProvider({
     : error
       ? error
       : failures.length > 0
-        ? failures.map((f) => `${PROVIDER_LABEL[f.provider]}: ${f.error}`).join(" · ")
+        ? failures
+            .map((f) => `${PROVIDER_LABEL[f.provider]}: ${f.error}`)
+            .join(" · ")
         : skipped.length > 0
-          ? skipped.map((s) => s.reason ?? "").join(" · ")
+          ? skipped.map((s) => s.reason).join(" · ")
           : synced.length > 0
             ? `Synced to ${synced.map((s) => PROVIDER_LABEL[s.provider]).join(" and ")}`
             : "";
@@ -104,7 +111,8 @@ export function ProgressProvider({
 /** The stepper itself, so it can sit next to the title while the episode
  *  list consumes the same state further down the page. */
 export function ProgressControl() {
-  const { progress, totalEpisodes, saving, status, setProgress } = useProgress();
+  const { progress, totalEpisodes, saving, status, setProgress } =
+    useProgress();
 
   return (
     <div className="flex flex-wrap items-center gap-3">
@@ -167,7 +175,7 @@ function StepButton({
       disabled={disabled}
       onClick={onClick}
       // 44px on touch, back to a compact 28px once there is a pointer.
-      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cream disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
+      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-ring disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
     >
       {children}
     </button>

@@ -1,10 +1,9 @@
 import { and, eq } from "drizzle-orm";
 
 import { db } from "@/db";
+import type { Provider } from "@/lib/providers";
 import { account } from "@/db/schema";
 import { env } from "@/lib/env";
-
-export type Provider = "anilist" | "mal";
 
 export class TokenError extends Error {
   provider: Provider;
@@ -95,7 +94,8 @@ export async function getValidAccessToken(
   }
 
   const expiresAt = row.accessTokenExpiresAt?.getTime() ?? null;
-  const isExpired = expiresAt !== null && expiresAt - EXPIRY_SKEW_MS <= Date.now();
+  const isExpired =
+    expiresAt !== null && expiresAt - EXPIRY_SKEW_MS <= Date.now();
 
   if (!isExpired) return row.accessToken;
 
@@ -107,8 +107,4 @@ export async function getValidAccessToken(
     provider,
     `The ${provider === "mal" ? "MyAnimeList" : "AniList"} session expired. Sign in again.`
   );
-}
-
-export async function isLinked(userId: string, provider: Provider) {
-  return (await loadAccount(userId, provider)) !== null;
 }

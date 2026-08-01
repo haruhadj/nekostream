@@ -21,13 +21,24 @@ export type DiscoveryResult = {
 };
 
 /** Descending preference — used to order quality chips and pick a default. */
-const QUALITY_RANK = ["2160p", "1440p", "1080p", "900p", "720p", "540p", "480p", "360p"];
+const QUALITY_RANK = [
+  "2160p",
+  "1440p",
+  "1080p",
+  "900p",
+  "720p",
+  "540p",
+  "480p",
+  "360p",
+];
 
 function byQualityRank(a: string, b: string) {
   const ia = QUALITY_RANK.indexOf(a);
   const ib = QUALITY_RANK.indexOf(b);
-  return (ia === -1 ? Number.MAX_SAFE_INTEGER : ia) -
-    (ib === -1 ? Number.MAX_SAFE_INTEGER : ib);
+  return (
+    (ia === -1 ? Number.MAX_SAFE_INTEGER : ia) -
+    (ib === -1 ? Number.MAX_SAFE_INTEGER : ib)
+  );
 }
 
 export function summarizeReleases(releases: NyaaRelease[]): DiscoveryResult {
@@ -71,12 +82,13 @@ export function summarizeReleases(releases: NyaaRelease[]): DiscoveryResult {
   const qualities = [...allQualities].sort(byQualityRank);
   const defaultQuality = qualities.includes("1080p")
     ? "1080p"
-    : qualities[0] ?? null;
+    : (qualities[0] ?? null);
 
   // Recommend the most prolific group that actually offers the default quality.
   const recommended =
-    groups.find((g) => defaultQuality && g.qualities.includes(defaultQuality)) ??
-    groups[0];
+    groups.find(
+      (g) => defaultQuality && g.qualities.includes(defaultQuality)
+    ) ?? groups[0];
   if (recommended) recommended.recommended = true;
 
   return {
@@ -93,7 +105,10 @@ export function summarizeReleases(releases: NyaaRelease[]): DiscoveryResult {
  */
 export async function discoverFilters(
   title: string,
-  { category = "1_2", filter = "0" }: { category?: string; filter?: string } = {}
+  {
+    category = "1_2",
+    filter = "0",
+  }: { category?: string; filter?: string } = {}
 ): Promise<DiscoveryResult> {
   const releases = await fetchReleases({ query: title, category, filter });
   return summarizeReleases(releases);
@@ -102,7 +117,10 @@ export async function discoverFilters(
 /** Composes the Nyaa `q` value from the user's picks. */
 export function buildQuery(
   title: string,
-  { releaseGroup, quality }: { releaseGroup?: string | null; quality?: string | null }
+  {
+    releaseGroup,
+    quality,
+  }: { releaseGroup?: string | null; quality?: string | null }
 ) {
   return [title, quality, releaseGroup].filter(Boolean).join(" ").trim();
 }

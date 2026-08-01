@@ -3,14 +3,7 @@
 import { useState } from "react";
 
 import { NyaaFilterSetup } from "@/components/nyaa-filter-setup";
-
-type SavedFilter = {
-  query: string;
-  category: string;
-  filter: string;
-  releaseGroup: string | null;
-  quality: string | null;
-};
+import type { SavedFilter } from "@/lib/nyaa/filter";
 
 /**
  * With no saved feed the setup form opens immediately — plan.md wants the Nyaa
@@ -51,7 +44,7 @@ export function NyaaFilterPanel({
   }
 
   return (
-    <section className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-edge bg-surface/50 px-5 py-4">
+    <section className="flex flex-wrap items-center gap-x-4 gap-y-2 card px-5 py-4">
       <div className="min-w-0 flex-1">
         <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
           Nyaa feed

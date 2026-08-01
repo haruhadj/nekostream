@@ -1,8 +1,3 @@
-import { and, eq } from "drizzle-orm";
-
-import { db } from "@/db";
-import { account } from "@/db/schema";
-
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
 
 export class AniListError extends Error {
@@ -21,17 +16,6 @@ export class AniListError extends Error {
   }
 }
 
-/** Reads the AniList token better-auth stored at sign-in. */
-export async function getAniListToken(userId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ accessToken: account.accessToken })
-    .from(account)
-    .where(and(eq(account.userId, userId), eq(account.providerId, "anilist")))
-    .limit(1);
-
-  return row?.accessToken ?? null;
-}
-
 type GraphQLResponse<T> = {
   data?: T;
   errors?: Array<{ message: string; status?: number }>;
@@ -44,7 +28,10 @@ type GraphQLResponse<T> = {
 export async function anilistRequest<T>(
   query: string,
   variables: Record<string, unknown> = {},
-  { accessToken, timeoutMs = 15_000 }: { accessToken?: string | null; timeoutMs?: number } = {}
+  {
+    accessToken,
+    timeoutMs = 15_000,
+  }: { accessToken?: string | null; timeoutMs?: number } = {}
 ): Promise<T> {
   let response: Response;
 
@@ -60,7 +47,7 @@ export async function anilistRequest<T>(
       signal: AbortSignal.timeout(timeoutMs),
       cache: "no-store",
     });
-  } catch (cause) {
+  } catch {
     throw new AniListError("Could not reach AniList.", { status: 502 });
   }
 
@@ -72,7 +59,9 @@ export async function anilistRequest<T>(
     });
   }
 
-  const json = (await response.json().catch(() => null)) as GraphQLResponse<T> | null;
+  const json = (await response
+    .json()
+    .catch(() => null)) as GraphQLResponse<T> | null;
 
   if (!json) {
     throw new AniListError("AniList returned a malformed response.", {

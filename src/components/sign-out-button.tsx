@@ -31,7 +31,7 @@ export function SignOutButton() {
         "w-full rounded-xl border border-edge bg-surface/60 px-5 py-3",
         "text-sm font-semibold tracking-tight text-cream",
         "transition duration-200 ease-out hover:border-rose-500/60 hover:text-rose-400",
-        "focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-cream",
+        "focus-ring",
         "active:translate-y-px disabled:cursor-wait disabled:opacity-60",
         "sm:w-auto",
       ].join(" ")}

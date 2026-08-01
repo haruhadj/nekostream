@@ -4,6 +4,13 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 import { AiringBadge } from "@/components/airing-countdown";
+import {
+  AnimeGrid,
+  AnimePoster,
+  AnimeTitle,
+  PosterScrim,
+} from "@/components/ui/anime-grid";
+import { SearchIcon } from "@/components/ui/search-icon";
 
 import {
   DEFAULT_SORT,
@@ -38,8 +45,12 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [query, setQuery] = useState("");
 
+  // localStorage does not exist during the server render, so the stored sort
+  // can only be applied after mount. A lazy initializer would read it during
+  // hydration and mismatch the server's markup.
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (isSortKey(stored)) setSort(stored);
   }, []);
 
@@ -49,7 +60,9 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
     // session, it just won't survive a reload.
     try {
       window.localStorage.setItem(STORAGE_KEY, next);
-    } catch {}
+    } catch {
+      // Nothing to recover: the sort is already applied in memory.
+    }
   }
 
   const sorted = useMemo(() => sortEntries(entries, sort), [entries, sort]);
@@ -73,14 +86,7 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
         {/* The magnifier sits inside the field so the control reads as one
             pill at phone width, where there is no room for an outside label. */}
         <div className="relative min-w-0 flex-1 sm:max-w-xs">
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-muted stroke-2"
-          >
-            <circle cx="11" cy="11" r="6" />
-            <path d="m15.6 15.6 4.4 4.4" strokeLinecap="round" />
-          </svg>
+          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-muted stroke-2" />
           <input
             id="library-search"
             type="search"
@@ -129,74 +135,59 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
           No titles match &ldquo;{query.trim()}&rdquo;.
         </p>
       ) : (
-      <ul className="mt-4 grid grid-cols-2 gap-x-3 gap-y-6 sm:grid-cols-3 sm:gap-x-5 sm:gap-y-8 lg:grid-cols-5">
-        {filtered.map((entry) => {
-          // Only a known total gives a meaningful bar; ongoing shows with an
-          // unknown length would otherwise render a fake full one.
-          const ratio =
-            entry.totalEpisodes && entry.totalEpisodes > 0
-              ? Math.min(entry.progress / entry.totalEpisodes, 1)
-              : null;
+        <AnimeGrid>
+          {filtered.map((entry) => {
+            // Only a known total gives a meaningful bar; ongoing shows with an
+            // unknown length would otherwise render a fake full one.
+            const ratio =
+              entry.totalEpisodes && entry.totalEpisodes > 0
+                ? Math.min(entry.progress / entry.totalEpisodes, 1)
+                : null;
 
-          return (
-            <li key={entry.id}>
-              <Link
-                href={`/anime/${entry.id}`}
-                className="group block transition active:scale-[0.97]"
-              >
-                <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
-                  {entry.coverImageUrl ? (
-                    /* AniList CDN images; a plain img avoids remote-host config
-                       for a domain the user can't change. */
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={entry.coverImageUrl}
-                      alt=""
-                      loading="lazy"
-                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
-                    />
-                  ) : null}
+            return (
+              <li key={entry.id}>
+                <Link
+                  href={`/anime/${entry.id}`}
+                  className="group block transition active:scale-[0.97]"
+                >
+                  <AnimePoster coverImageUrl={entry.coverImageUrl}>
+                    <PosterScrim />
 
-                  {/* Scrim so the badge and the progress bar stay legible over
-                      whatever the cover art happens to be. */}
-                  <div
-                    aria-hidden="true"
-                    className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/85 to-transparent"
-                  />
-
-                  {entry.nextAiringAt && entry.nextAiringEpisode ? (
-                    <AiringBadge
-                      episodeNumber={entry.nextAiringEpisode}
-                      airingAt={entry.nextAiringAt.toISOString()}
-                    />
-                  ) : null}
-
-                  {ratio !== null && ratio > 0 ? (
-                    <div
-                      aria-hidden="true"
-                      className="absolute inset-x-0 bottom-0 h-1 bg-ink/50"
-                    >
-                      <div
-                        className="h-full bg-anilist"
-                        style={{ width: `${ratio * 100}%` }}
+                    {entry.nextAiringAt && entry.nextAiringEpisode ? (
+                      <AiringBadge
+                        episodeNumber={entry.nextAiringEpisode}
+                        airingAt={entry.nextAiringAt.toISOString()}
                       />
-                    </div>
-                  ) : null}
-                </div>
+                    ) : null}
 
-                <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
-                  {entry.titleEnglish ?? entry.titleRomaji}
-                </p>
-                <p className="mt-1 text-xs text-muted tabular-nums">
-                  {entry.progress}
-                  {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""}{" "}
-                  watched
-                </p>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+                    {ratio !== null && ratio > 0 ? (
+                      <div
+                        aria-hidden="true"
+                        className="absolute inset-x-0 bottom-0 h-1 bg-ink/50"
+                      >
+                        <div
+                          className="h-full bg-anilist"
+                          style={{ width: `${ratio * 100}%` }}
+                        />
+                      </div>
+                    ) : null}
+                  </AnimePoster>
+
+                  <AnimeTitle>
+                    {entry.titleEnglish ?? entry.titleRomaji}
+                  </AnimeTitle>
+                  <p className="mt-1 text-xs text-muted tabular-nums">
+                    {entry.progress}
+                    {entry.totalEpisodes
+                      ? ` / ${entry.totalEpisodes}`
+                      : ""}{" "}
+                    watched
+                  </p>
+                </Link>
+              </li>
+            );
+          })}
+        </AnimeGrid>
       )}
     </>
   );

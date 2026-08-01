@@ -145,9 +145,7 @@ async function pollDueFeeds(now: Date) {
     })
     .from(rssFilter)
     .innerJoin(libraryEntry, eq(libraryEntry.id, rssFilter.libraryEntryId))
-    .where(
-      and(isNotNull(rssFilter.pollNextAt), lte(rssFilter.pollNextAt, now))
-    )
+    .where(and(isNotNull(rssFilter.pollNextAt), lte(rssFilter.pollNextAt, now)))
     .orderBy(sql`${rssFilter.pollNextAt} asc`)
     .limit(MAX_FETCHES_PER_TICK);
 

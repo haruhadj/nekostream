@@ -7,7 +7,7 @@
  */
 
 import { anilistRequest } from "@/lib/anilist/client";
-import { MalError } from "@/lib/mal/queries";
+import { malFetch } from "@/lib/mal/client";
 import {
   fromAniListStatus,
   fromMalStatus,
@@ -61,16 +61,41 @@ export async function readAniListEntry(
   };
 }
 
+/**
+ * Values to write to a tracker.
+ *
+ * Score is optional, and the distinction matters: marking an episode watched
+ * and mirroring two lists both write progress and status only. Sending a score
+ * on those paths would overwrite whatever the user had rated the show.
+ */
+export type TrackerWrite = {
+  progress: number;
+  status: MirrorStatus;
+  score?: number;
+  /**
+   * Leaves MyAnimeList's is_rewatching flag untouched. Set when the status was
+   * derived from episode count rather than chosen by the user: ticking an
+   * episode during a rewatch must not be what ends the rewatch.
+   */
+  keepRewatchFlag?: boolean;
+};
+
 export async function writeAniListEntry(
   accessToken: string,
   mediaId: number,
-  values: { progress: number; status: MirrorStatus; score: number }
+  values: TrackerWrite
 ) {
+  const withScore = values.score !== undefined;
+
   await anilistRequest(
-    `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Int) {
+    withScore
+      ? `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus, $score: Int) {
        SaveMediaListEntry(
          mediaId: $mediaId, progress: $progress, status: $status, scoreRaw: $score
        ) { id }
+     }`
+      : `mutation ($mediaId: Int, $progress: Int, $status: MediaListStatus) {
+       SaveMediaListEntry(mediaId: $mediaId, progress: $progress, status: $status) { id }
      }`,
     {
       mediaId,
@@ -78,30 +103,10 @@ export async function writeAniListEntry(
       status: MIRROR_TO_ANILIST[values.status],
       // scoreRaw is always on the 100-point scale regardless of the user's
       // display preference, so a 0-10 score has to be widened here.
-      score: values.score * 10,
+      ...(withScore ? { score: values.score! * 10 } : {}),
     },
     { accessToken }
   );
-}
-
-async function malFetch(accessToken: string, url: string, init?: RequestInit) {
-  const response = await fetch(url, {
-    ...init,
-    headers: { ...init?.headers, Authorization: `Bearer ${accessToken}` },
-    signal: AbortSignal.timeout(15_000),
-  });
-
-  if (!response.ok) {
-    const detail = await response.text().catch(() => "");
-    throw new MalError(
-      response.status,
-      response.status === 401
-        ? "MyAnimeList rejected the token. Link the account again."
-        : `MyAnimeList returned ${response.status}${detail ? `: ${detail.slice(0, 80)}` : ""}`
-    );
-  }
-
-  return response;
 }
 
 export async function readMalEntry(
@@ -139,7 +144,7 @@ export async function readMalEntry(
 export async function writeMalEntry(
   accessToken: string,
   malMediaId: number,
-  values: { progress: number; status: MirrorStatus; score: number }
+  values: TrackerWrite
 ) {
   const mapped = MIRROR_TO_MAL[values.status];
 
@@ -152,8 +157,10 @@ export async function writeMalEntry(
       body: new URLSearchParams({
         num_watched_episodes: String(values.progress),
         status: mapped.status,
-        is_rewatching: String(mapped.isRewatching),
-        score: String(values.score),
+        ...(values.keepRewatchFlag
+          ? {}
+          : { is_rewatching: String(mapped.isRewatching) }),
+        ...(values.score !== undefined ? { score: String(values.score) } : {}),
       }),
     }
   );
@@ -161,19 +168,12 @@ export async function writeMalEntry(
 
 /** Removes the anime from the tracker's list entirely. */
 export async function deleteMalEntry(accessToken: string, malMediaId: number) {
-  const response = await fetch(
+  await malFetch(
+    accessToken,
     `https://api.myanimelist.net/v2/anime/${malMediaId}/my_list_status`,
-    {
-      method: "DELETE",
-      headers: { Authorization: `Bearer ${accessToken}` },
-      signal: AbortSignal.timeout(15_000),
-    }
+    // 404 means it was already absent, which is the state the caller wanted.
+    { method: "DELETE", allowNotFound: true }
   );
-
-  // 404 means it was already absent, which is the state the caller wanted.
-  if (!response.ok && response.status !== 404) {
-    throw new MalError(response.status, `MyAnimeList returned ${response.status}`);
-  }
 }
 
 export async function deleteAniListEntry(accessToken: string, mediaId: number) {

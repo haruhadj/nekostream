@@ -1,6 +1,6 @@
 import { randomBytes } from "node:crypto";
 import { Hono } from "hono";
-import { and, asc, desc, eq } from "drizzle-orm";
+import { asc, desc, eq } from "drizzle-orm";
 
 import { db } from "@/db";
 import { episode, libraryEntry, stremioToken } from "@/db/schema";
@@ -9,8 +9,7 @@ import { formatBytes } from "@/lib/format";
 import { applyFilter, FILTERS } from "@/lib/library/filters";
 import { DEFAULT_SORT, SORTS, sortEntries } from "@/lib/library/sort";
 import { TRACKERS } from "@/lib/nyaa/rss";
-
-type Env = { Variables: { userId: string } };
+import { findEntry, type Env } from "@/server/shared";
 
 /** Our own id namespace, so Stremio routes meta/stream requests back to us. */
 const ID_PREFIX = "nekostream:";
@@ -29,7 +28,7 @@ function catalogId(filterKey: string) {
   return `nekostream-${filterKey}`;
 }
 
-export function generateStremioToken() {
+function generateStremioToken() {
   return randomBytes(24).toString("base64url");
 }
 
@@ -171,7 +170,9 @@ async function catalog(
   const needle = search?.trim().toLowerCase();
   const matched = needle
     ? entries.filter((e) =>
-        `${e.titleRomaji} ${e.titleEnglish ?? ""}`.toLowerCase().includes(needle)
+        `${e.titleRomaji} ${e.titleEnglish ?? ""}`
+          .toLowerCase()
+          .includes(needle)
       )
     : entries;
 
@@ -223,16 +224,6 @@ function parseId(raw: string) {
   return { entryId, episodeNumber };
 }
 
-/** Scoped by userId so one token can never reach another user's library. */
-async function findEntry(userId: string, entryId: string) {
-  const [entry] = await db
-    .select()
-    .from(libraryEntry)
-    .where(and(eq(libraryEntry.id, entryId), eq(libraryEntry.userId, userId)))
-    .limit(1);
-  return entry ?? null;
-}
-
 stremioRoutes.get("/:token/meta/series/:id", async (c) => {
   const parsed = parseId(c.req.param("id"));
   if (!parsed) return c.json({ error: "Bad id." }, 404);
@@ -252,7 +243,10 @@ stremioRoutes.get("/:token/meta/series/:id", async (c) => {
   for (const row of rows) {
     const number = row.episodeNumber ?? BATCH_EPISODE;
     const current = released.get(number) ?? null;
-    if (!released.has(number) || (row.publishedAt && (!current || row.publishedAt > current))) {
+    if (
+      !released.has(number) ||
+      (row.publishedAt && (!current || row.publishedAt > current))
+    ) {
       released.set(number, row.publishedAt);
     }
   }
@@ -261,14 +255,19 @@ stremioRoutes.get("/:token/meta/series/:id", async (c) => {
     .sort(([a], [b]) => a - b)
     .map(([number, date]) => ({
       id: `${ID_PREFIX}${entry.id}:1:${number}`,
-      title: number === BATCH_EPISODE ? "Batches & unnumbered" : `Episode ${number}`,
+      title:
+        number === BATCH_EPISODE ? "Batches & unnumbered" : `Episode ${number}`,
       season: 1,
       episode: number,
       released: (date ?? entry.createdAt).toISOString(),
     }));
 
   return c.json({
-    meta: { ...toMetaPreview(entry), videos, background: entry.coverImageUrl ?? undefined },
+    meta: {
+      ...toMetaPreview(entry),
+      videos,
+      background: entry.coverImageUrl ?? undefined,
+    },
   });
 });
 
@@ -287,7 +286,9 @@ stremioRoutes.get("/:token/stream/series/:id", async (c) => {
 
   const wanted =
     parsed.episodeNumber === BATCH_EPISODE
-      ? rows.filter((r) => r.episodeNumber === null || r.episodeNumber === BATCH_EPISODE)
+      ? rows.filter(
+          (r) => r.episodeNumber === null || r.episodeNumber === BATCH_EPISODE
+        )
       : rows.filter((r) => r.episodeNumber === parsed.episodeNumber);
 
   const streams = wanted.map((row) => {
@@ -297,7 +298,9 @@ stremioRoutes.get("/:token/stream/series/:id", async (c) => {
       name: `NekoStream${row.quality ? ` ${row.quality}` : ""}`,
       title: [
         row.rawTitle,
-        [`👤 ${row.seeders ?? 0}`, size && `💾 ${size}`].filter(Boolean).join(" · "),
+        [`👤 ${row.seeders ?? 0}`, size && `💾 ${size}`]
+          .filter(Boolean)
+          .join(" · "),
       ].join("\n"),
       // infoHash + sources (not a magnet url) is what hands the torrent to
       // Stremio's own streaming engine instead of an external player.

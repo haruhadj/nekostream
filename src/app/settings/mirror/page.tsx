@@ -10,7 +10,9 @@ export default async function MirrorPage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const accounts = await auth.api.listUserAccounts({ headers: await headers() });
+  const accounts = await auth.api.listUserAccounts({
+    headers: await headers(),
+  });
   const malLinked = accounts.some((a) => a.providerId === "mal");
 
   return (
@@ -38,8 +40,8 @@ export default async function MirrorPage() {
             <MirrorReview />
           ) : (
             <p className="rounded-xl border border-edge bg-surface/50 px-4 py-3 text-sm text-muted">
-              Link MyAnimeList first — there is nothing to compare against
-              until then.{" "}
+              Link MyAnimeList first — there is nothing to compare against until
+              then.{" "}
               <Link href="/settings" className="underline underline-offset-2">
                 Go to settings
               </Link>

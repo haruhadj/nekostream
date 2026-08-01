@@ -11,7 +11,8 @@ const CASES: Array<{
   quality: string | null;
 }> = [
   {
-    title: "[SubsPlease] Tefuda ga Oome no Victoria - 04 (1080p) [F188F6D4].mkv",
+    title:
+      "[SubsPlease] Tefuda ga Oome no Victoria - 04 (1080p) [F188F6D4].mkv",
     group: "SubsPlease",
     episode: 4,
     quality: "1080p",
@@ -37,7 +38,8 @@ const CASES: Array<{
     quality: "1080p",
   },
   {
-    title: "[Breeze] Mushoku Tensei S03E05 [1080p AV1] | Jobless Reincarnation (weekly)",
+    title:
+      "[Breeze] Mushoku Tensei S03E05 [1080p AV1] | Jobless Reincarnation (weekly)",
     group: "Breeze",
     episode: 5,
     quality: "1080p",
@@ -99,7 +101,10 @@ test("parses release titles from the live Nyaa corpus", () => {
 });
 
 test("a CRC32 hash in leading brackets is not treated as a release group", () => {
-  assert.equal(parseReleaseTitle("[F188F6D4] Some Show - 04").releaseGroup, null);
+  assert.equal(
+    parseReleaseTitle("[F188F6D4] Some Show - 04").releaseGroup,
+    null
+  );
 });
 
 test("batches report no single episode number", () => {
@@ -119,5 +124,8 @@ test("version suffixes are ignored", () => {
 });
 
 test("4K is normalized to 2160p", () => {
-  assert.equal(parseReleaseTitle("[Group] Show - 01 [4K][HDR]").quality, "2160p");
+  assert.equal(
+    parseReleaseTitle("[Group] Show - 01 [4K][HDR]").quality,
+    "2160p"
+  );
 });

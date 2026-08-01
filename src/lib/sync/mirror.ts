@@ -6,14 +6,11 @@
  * run and a real run compute the plan exactly the same way.
  */
 
+import type { Provider } from "@/lib/providers";
+
 /** The shared vocabulary. Both trackers map onto this, neither drives it. */
 export type MirrorStatus =
-  | "watching"
-  | "planning"
-  | "completed"
-  | "dropped"
-  | "paused"
-  | "repeating";
+  "watching" | "planning" | "completed" | "dropped" | "paused" | "repeating";
 
 const ANILIST_TO_MIRROR: Record<string, MirrorStatus> = {
   CURRENT: "watching",
@@ -108,7 +105,7 @@ export type MirrorRow = {
 };
 
 /** Which tracker's values to copy to the other. */
-export type Side = "anilist" | "mal";
+export type Side = Provider;
 
 export type MirrorPlan = {
   /** Rows needing a decision — the only thing the user is asked about. */

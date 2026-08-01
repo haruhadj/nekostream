@@ -101,7 +101,11 @@ export function stateForAiring({
 
   if (current.targetEpisode === episode) return null;
 
-  return { targetEpisode: episode, nextAt: firstCheckAt(airingAt), attempts: 0 };
+  return {
+    targetEpisode: episode,
+    nextAt: firstCheckAt(airingAt),
+    attempts: 0,
+  };
 }
 
 /**

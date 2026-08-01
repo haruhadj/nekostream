@@ -18,11 +18,11 @@ const AIRED = new Date("2026-08-01T15:00:00Z");
 const minutes = (n: number) => n * 60_000;
 
 test("the first check waits for the encode-and-upload lag", () => {
-  assert.equal(
-    firstCheckAt(AIRED).getTime() - AIRED.getTime(),
-    RELEASE_LAG_MS
+  assert.equal(firstCheckAt(AIRED).getTime() - AIRED.getTime(), RELEASE_LAG_MS);
+  assert.deepEqual(
+    nextPollAt({ airingAt: AIRED, attempts: 0 }),
+    firstCheckAt(AIRED)
   );
-  assert.deepEqual(nextPollAt({ airingAt: AIRED, attempts: 0 }), firstCheckAt(AIRED));
 });
 
 test("backoff doubles and then stops at the cap", () => {
@@ -114,14 +114,22 @@ test("a newly announced episode arms the feed", () => {
 
 test("re-syncing the same episode does not reset a backoff in progress", () => {
   assert.equal(
-    stateForAiring({ airingAt: AIRED, episode: 8, current: { targetEpisode: 8 } }),
+    stateForAiring({
+      airingAt: AIRED,
+      episode: 8,
+      current: { targetEpisode: 8 },
+    }),
     null
   );
 });
 
 test("a show that finished airing stands down, and stays stood down", () => {
   assert.deepEqual(
-    stateForAiring({ airingAt: null, episode: null, current: { targetEpisode: 8 } }),
+    stateForAiring({
+      airingAt: null,
+      episode: null,
+      current: { targetEpisode: 8 },
+    }),
     DORMANT
   );
   assert.equal(

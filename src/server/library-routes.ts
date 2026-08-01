@@ -4,14 +4,11 @@ import { z } from "zod";
 
 import { db } from "@/db";
 import { episode, libraryEntry, rssFilter, user } from "@/db/schema";
-import { AniListError } from "@/lib/anilist/client";
 import { importAniListLibrary } from "@/lib/anilist/import";
-import { auth } from "@/lib/auth";
-import { getValidAccessToken, TokenError } from "@/lib/tokens";
+import { getValidAccessToken } from "@/lib/tokens";
 import { refreshEpisodes } from "@/lib/library/refresh";
 import { syncProgress } from "@/lib/sync/progress";
 import { MIRROR_TO_ANILIST } from "@/lib/sync/mirror";
-import { MalError } from "@/lib/mal/queries";
 import {
   deleteAniListEntry,
   deleteMalEntry,
@@ -21,14 +18,20 @@ import {
   writeMalEntry,
 } from "@/lib/sync/tracker-entry";
 import { discoverFilters } from "@/lib/nyaa/discover";
-import { NyaaFetchError } from "@/lib/nyaa/rss";
+import { filterSchema } from "@/lib/nyaa/filter";
 import {
   getOrCreateStremioToken,
   rotateStremioToken,
   stremioManifestUrl,
 } from "@/server/stremio-routes";
-
-type Env = { Variables: { userId: string } };
+import {
+  handleUpstreamErrors,
+  parseBody,
+  parseParam,
+  requireEntry,
+  requireSession,
+  type Env,
+} from "@/server/shared";
 
 const addEntrySchema = z.object({
   anilistMediaId: z.number().int().positive(),
@@ -48,33 +51,11 @@ const updateEntrySchema = z
   .partial()
   .refine((v) => Object.keys(v).length > 0, "Provide at least one field.");
 
-const filterSchema = z.object({
-  query: z.string().min(1),
-  category: z.string().default("1_2"),
-  filter: z.string().default("0"),
-  releaseGroup: z.string().nullish(),
-  quality: z.string().nullish(),
-});
-
 export const libraryRoutes = new Hono<Env>();
 
 // AniList sign-in gates the whole library surface.
-libraryRoutes.use("*", async (c, next) => {
-  const session = await auth.api.getSession({ headers: c.req.raw.headers });
-  if (!session) return c.json({ error: "Sign in with AniList first." }, 401);
-  c.set("userId", session.user.id);
-  await next();
-});
-
-/** Scopes every lookup to the caller so ids from another account 404. */
-async function findEntry(userId: string, id: string) {
-  const [entry] = await db
-    .select()
-    .from(libraryEntry)
-    .where(and(eq(libraryEntry.id, id), eq(libraryEntry.userId, userId)))
-    .limit(1);
-  return entry ?? null;
-}
+libraryRoutes.use("*", requireSession);
+libraryRoutes.onError(handleUpstreamErrors);
 
 libraryRoutes.get("/", async (c) => {
   const entries = await db
@@ -87,10 +68,7 @@ libraryRoutes.get("/", async (c) => {
 });
 
 libraryRoutes.post("/", async (c) => {
-  const parsed = addEntrySchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
-    return c.json({ error: "Invalid anime.", issues: parsed.error.issues }, 400);
-  }
+  const data = await parseBody(c, addEntrySchema, "Invalid anime.");
 
   const userId = c.get("userId");
 
@@ -100,7 +78,7 @@ libraryRoutes.post("/", async (c) => {
     .where(
       and(
         eq(libraryEntry.userId, userId),
-        eq(libraryEntry.anilistMediaId, parsed.data.anilistMediaId)
+        eq(libraryEntry.anilistMediaId, data.anilistMediaId)
       )
     )
     .limit(1);
@@ -112,7 +90,7 @@ libraryRoutes.post("/", async (c) => {
     .values({
       id: crypto.randomUUID(),
       userId,
-      ...parsed.data,
+      ...data,
       // Manually-added titles start untracked — syncing would otherwise push
       // a brand-new entry onto the user's real AniList/MAL lists the moment
       // they touch progress. AniList imports set these true on their own path.
@@ -167,40 +145,25 @@ libraryRoutes.post("/sync", async (c) => {
     return c.json({ added: 0, skipped: 0, total: 0, throttled: true });
   }
 
-  try {
-    return c.json({ ...(await importAniListLibrary(userId)), throttled: false });
-  } catch (error) {
-    if (error instanceof TokenError) {
-      return c.json({ error: error.message }, 401);
-    }
-    if (error instanceof AniListError) {
-      return c.json({ error: error.message }, 502);
-    }
-    throw error;
-  }
+  return c.json({
+    ...(await importAniListLibrary(userId)),
+    throttled: false,
+  });
 });
 
 libraryRoutes.patch("/:id", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const parsed = updateEntrySchema.safeParse(
-    await c.req.json().catch(() => null)
-  );
-  if (!parsed.success) {
-    return c.json({ error: "Invalid update.", issues: parsed.error.issues }, 400);
-  }
+  const data = await parseBody(c, updateEntrySchema, "Invalid update.");
 
   const [updated] = await db
     .update(libraryEntry)
     .set({
-      ...parsed.data,
+      ...data,
       updatedAt: new Date(),
       // Watching an episode is activity; flipping a sync toggle is not, and
       // shouldn't push the entry to the top of the "Last updated" sort.
-      ...(parsed.data.progress !== undefined
-        ? { lastActivityAt: new Date() }
-        : {}),
+      ...(data.progress !== undefined ? { lastActivityAt: new Date() } : {}),
     })
     .where(eq(libraryEntry.id, entry.id))
     .returning();
@@ -209,8 +172,7 @@ libraryRoutes.patch("/:id", async (c) => {
 });
 
 libraryRoutes.delete("/:id", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
   await db.delete(libraryEntry).where(eq(libraryEntry.id, entry.id));
   return c.json({ removed: true });
@@ -221,24 +183,15 @@ libraryRoutes.delete("/:id", async (c) => {
  * Defaults the search to the entry's own title.
  */
 libraryRoutes.get("/:id/discover", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
   const query = c.req.query("q")?.trim() || entry.titleRomaji;
 
-  try {
-    return c.json({ query, ...(await discoverFilters(query)) });
-  } catch (error) {
-    if (error instanceof NyaaFetchError) {
-      return c.json({ error: error.message }, 502);
-    }
-    throw error;
-  }
+  return c.json({ query, ...(await discoverFilters(query)) });
 });
 
 libraryRoutes.get("/:id/filter", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
   const [filter] = await db
     .select()
@@ -251,24 +204,20 @@ libraryRoutes.get("/:id/filter", async (c) => {
 
 /** Saving a filter replaces any previous one — an entry has exactly one feed. */
 libraryRoutes.put("/:id/filter", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const parsed = filterSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
-    return c.json({ error: "Invalid filter.", issues: parsed.error.issues }, 400);
-  }
+  const data = await parseBody(c, filterSchema, "Invalid filter.");
 
   const [filter] = await db
     .insert(rssFilter)
     .values({
       id: crypto.randomUUID(),
       libraryEntryId: entry.id,
-      ...parsed.data,
+      ...data,
     })
     .onConflictDoUpdate({
       target: rssFilter.libraryEntryId,
-      set: { ...parsed.data, updatedAt: new Date() },
+      set: { ...data, updatedAt: new Date() },
     })
     .returning();
 
@@ -277,20 +226,9 @@ libraryRoutes.put("/:id/filter", async (c) => {
 
 /** Manual refresh — v1 has no scheduled polling by design. */
 libraryRoutes.post("/:id/refresh", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  try {
-    return c.json(await refreshEpisodes(entry.id));
-  } catch (error) {
-    if (error instanceof NyaaFetchError) {
-      return c.json({ error: error.message }, 502);
-    }
-    return c.json(
-      { error: error instanceof Error ? error.message : "Refresh failed." },
-      400
-    );
-  }
+  return c.json(await refreshEpisodes(entry.id));
 });
 
 const progressSchema = z.object({
@@ -304,15 +242,11 @@ const progressSchema = z.object({
  */
 libraryRoutes.put("/:id/progress", async (c) => {
   const userId = c.get("userId");
-  const entry = await findEntry(userId, c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const parsed = progressSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
-    return c.json({ error: "Invalid progress.", issues: parsed.error.issues }, 400);
-  }
+  const data = await parseBody(c, progressSchema, "Invalid progress.");
 
-  const { progress } = parsed.data;
+  const { progress } = data;
 
   const [updated] = await db
     .update(libraryEntry)
@@ -338,8 +272,7 @@ libraryRoutes.put("/:id/progress", async (c) => {
 });
 
 libraryRoutes.get("/:id/episodes", async (c) => {
-  const entry = await findEntry(c.get("userId"), c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
   const episodes = await db
     .select()
@@ -372,111 +305,88 @@ const trackerSchema = z.object({
 
 const providerParam = z.enum(["anilist", "mal"]);
 
-/** Turns tracker failures into a status the client can act on. */
-function trackerError(error: unknown) {
-  if (error instanceof TokenError) return { message: error.message, status: 401 as const };
-  if (error instanceof MalError) return { message: error.message, status: 502 as const };
-  if (error instanceof AniListError) return { message: error.message, status: 502 as const };
-  return null;
-}
-
 libraryRoutes.get("/:id/tracker/:provider", async (c) => {
   const userId = c.get("userId");
-  const entry = await findEntry(userId, c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const provider = providerParam.safeParse(c.req.param("provider"));
-  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+  const provider = parseParam(
+    providerParam,
+    c.req.param("provider"),
+    "Unknown tracker."
+  );
 
-  if (provider.data === "mal" && entry.malMediaId === null) {
+  if (provider === "mal" && entry.malMediaId === null) {
     return c.json({ error: "This title has no MyAnimeList entry." }, 404);
   }
 
-  try {
-    const token = await getValidAccessToken(userId, provider.data);
-    const tracker =
-      provider.data === "anilist"
-        ? await readAniListEntry(token, entry.anilistMediaId)
-        : await readMalEntry(token, entry.malMediaId!);
+  const token = await getValidAccessToken(userId, provider);
+  const tracker =
+    provider === "anilist"
+      ? await readAniListEntry(token, entry.anilistMediaId)
+      : await readMalEntry(token, entry.malMediaId!);
 
-    return c.json({ tracker });
-  } catch (error) {
-    const mapped = trackerError(error);
-    if (mapped) return c.json({ error: mapped.message }, mapped.status);
-    throw error;
-  }
+  return c.json({ tracker });
 });
 
 libraryRoutes.put("/:id/tracker/:provider", async (c) => {
   const userId = c.get("userId");
-  const entry = await findEntry(userId, c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const provider = providerParam.safeParse(c.req.param("provider"));
-  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+  const provider = parseParam(
+    providerParam,
+    c.req.param("provider"),
+    "Unknown tracker."
+  );
 
-  const parsed = trackerSchema.safeParse(await c.req.json().catch(() => null));
-  if (!parsed.success) {
-    return c.json({ error: "Invalid values.", issues: parsed.error.issues }, 400);
-  }
+  const data = await parseBody(c, trackerSchema, "Invalid values.");
 
-  if (provider.data === "mal" && entry.malMediaId === null) {
+  if (provider === "mal" && entry.malMediaId === null) {
     return c.json({ error: "This title has no MyAnimeList entry." }, 404);
   }
 
-  try {
-    const token = await getValidAccessToken(userId, provider.data);
+  const token = await getValidAccessToken(userId, provider);
 
-    if (provider.data === "anilist") {
-      await writeAniListEntry(token, entry.anilistMediaId, parsed.data);
-    } else {
-      await writeMalEntry(token, entry.malMediaId!, parsed.data);
-    }
-
-    // The local row mirrors AniList, which is what the library renders from.
-    // A MAL-only edit deliberately leaves it alone rather than letting one
-    // tracker silently redefine local progress.
-    if (provider.data === "anilist") {
-      await db
-        .update(libraryEntry)
-        .set({
-          progress: parsed.data.progress,
-          anilistStatus: MIRROR_TO_ANILIST[parsed.data.status],
-          lastActivityAt: new Date(),
-          updatedAt: new Date(),
-        })
-        .where(eq(libraryEntry.id, entry.id));
-    }
-
-    return c.json({ ok: true });
-  } catch (error) {
-    const mapped = trackerError(error);
-    if (mapped) return c.json({ error: mapped.message }, mapped.status);
-    throw error;
+  if (provider === "anilist") {
+    await writeAniListEntry(token, entry.anilistMediaId, data);
+  } else {
+    await writeMalEntry(token, entry.malMediaId!, data);
   }
+
+  // The local row mirrors AniList, which is what the library renders from.
+  // A MAL-only edit deliberately leaves it alone rather than letting one
+  // tracker silently redefine local progress.
+  if (provider === "anilist") {
+    await db
+      .update(libraryEntry)
+      .set({
+        progress: data.progress,
+        anilistStatus: MIRROR_TO_ANILIST[data.status],
+        lastActivityAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(libraryEntry.id, entry.id));
+  }
+
+  return c.json({ ok: true });
 });
 
 libraryRoutes.delete("/:id/tracker/:provider", async (c) => {
   const userId = c.get("userId");
-  const entry = await findEntry(userId, c.req.param("id"));
-  if (!entry) return c.json({ error: "Not in your library." }, 404);
+  const entry = await requireEntry(c);
 
-  const provider = providerParam.safeParse(c.req.param("provider"));
-  if (!provider.success) return c.json({ error: "Unknown tracker." }, 404);
+  const provider = parseParam(
+    providerParam,
+    c.req.param("provider"),
+    "Unknown tracker."
+  );
 
-  try {
-    const token = await getValidAccessToken(userId, provider.data);
+  const token = await getValidAccessToken(userId, provider);
 
-    if (provider.data === "anilist") {
-      await deleteAniListEntry(token, entry.anilistMediaId);
-    } else if (entry.malMediaId !== null) {
-      await deleteMalEntry(token, entry.malMediaId);
-    }
-
-    return c.json({ ok: true });
-  } catch (error) {
-    const mapped = trackerError(error);
-    if (mapped) return c.json({ error: mapped.message }, mapped.status);
-    throw error;
+  if (provider === "anilist") {
+    await deleteAniListEntry(token, entry.anilistMediaId);
+  } else if (entry.malMediaId !== null) {
+    await deleteMalEntry(token, entry.malMediaId);
   }
+
+  return c.json({ ok: true });
 });

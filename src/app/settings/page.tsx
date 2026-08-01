@@ -57,7 +57,7 @@ export default async function SettingsPage({
           </p>
         ) : null}
 
-        <section className="mt-8 rounded-2xl border border-edge bg-surface/50 p-5 sm:p-6">
+        <section className="mt-8 card p-5 sm:p-6">
           <h2 className="text-sm font-semibold">AniList</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {anilistLinked
@@ -76,7 +76,7 @@ export default async function SettingsPage({
           )}
         </section>
 
-        <section className="mt-3 rounded-2xl border border-edge bg-surface/50 p-5 sm:mt-4 sm:p-6">
+        <section className="mt-3 card p-5 sm:mt-4 sm:p-6">
           <h2 className="text-sm font-semibold">MyAnimeList</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             {malLinked
@@ -103,7 +103,7 @@ export default async function SettingsPage({
           )}
         </section>
 
-        <section className="mt-3 rounded-2xl border border-edge bg-surface/50 p-5 sm:mt-4 sm:p-6">
+        <section className="mt-3 card p-5 sm:mt-4 sm:p-6">
           <h2 className="text-sm font-semibold">Stremio</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Install this addon to browse your library in Stremio and play the
