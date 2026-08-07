@@ -2,7 +2,7 @@ import Link from "next/link";
 
 import { SearchIconPaths } from "@/components/ui/search-icon";
 
-type Tab = "library" | "search" | "settings";
+type Tab = "library" | "calendar" | "search" | "settings";
 
 /**
  * Two navigations for one set of destinations. Wide screens get the usual top
@@ -28,6 +28,11 @@ export function SiteHeader({ active }: { active?: Tab }) {
           {/* The top links duplicate the tab bar, so they stand down on phones. */}
           <nav className="hidden items-center gap-5 text-sm sm:flex">
             <NavLink href="/" label="Library" isActive={active === "library"} />
+            <NavLink
+              href="/calendar"
+              label="Calendar"
+              isActive={active === "calendar"}
+            />
             <NavLink
               href="/search"
               label="Search"
@@ -81,6 +86,15 @@ function TabBar({ active }: { active?: Tab }) {
       <ul className="flex h-[var(--tabbar)] items-stretch">
         <TabLink href="/" label="Library" isActive={active === "library"}>
           <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h3A1.5 1.5 0 0 1 10 5.5v13A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-13ZM13 5.5A1.5 1.5 0 0 1 14.5 4h1A1.5 1.5 0 0 1 17 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-13Z" />
+        </TabLink>
+
+        <TabLink
+          href="/calendar"
+          label="Calendar"
+          isActive={active === "calendar"}
+        >
+          <path d="M5.5 5.5h13A1.5 1.5 0 0 1 20 7v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19V7a1.5 1.5 0 0 1 1.5-1.5Z" />
+          <path d="M4 9.5h16M8 4v3M16 4v3" strokeLinecap="round" />
         </TabLink>
 
         <TabLink href="/search" label="Search" isActive={active === "search"}>

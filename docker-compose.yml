@@ -28,6 +28,15 @@ services:
       # Generate with: openssl rand -hex 32
       MAL_CODE_VERIFIER: "${MAL_CODE_VERIFIER:?set MAL_CODE_VERIFIER in .env}"
 
+      # Optional. SMTP for the new-episode notification email — see README.
+      # Unset leaves the feature off.
+      SMTP_HOST: "${SMTP_HOST:-}"
+      SMTP_PORT: "${SMTP_PORT:-}"
+      SMTP_USER: "${SMTP_USER:-}"
+      SMTP_PASS: "${SMTP_PASS:-}"
+      SMTP_FROM: "${SMTP_FROM:-}"
+      SMTP_SECURE: "${SMTP_SECURE:-}"
+
     volumes:
       # The SQLite database lives here — back this up.
       - nekostream-data:/data

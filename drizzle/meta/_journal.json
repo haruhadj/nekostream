@@ -50,6 +50,13 @@
       "when": 1785467012482,
       "tag": "0006_pale_proemial_gods",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1786117000034,
+      "tag": "0007_mighty_loki",
+      "breakpoints": true
     }
   ]
 }

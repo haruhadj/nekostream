@@ -13,7 +13,7 @@
 import { and, eq, isNotNull, lte, sql } from "drizzle-orm";
 
 import { db } from "@/db";
-import { episode, libraryEntry, rssFilter } from "@/db/schema";
+import { episode, libraryEntry, rssFilter, user } from "@/db/schema";
 import { airingSchedules } from "@/lib/anilist/queries";
 import {
   DORMANT,
@@ -21,6 +21,7 @@ import {
   stateForAiring,
   type PollState,
 } from "@/lib/airing/schedule";
+import { notifyNewEpisode } from "@/lib/email/notify";
 import { refreshEpisodes } from "@/lib/library/refresh";
 
 /** How often to look for work. Cheap: usually a single indexed query. */
@@ -142,9 +143,12 @@ async function pollDueFeeds(now: Date) {
       attempts: rssFilter.pollAttempts,
       title: libraryEntry.titleRomaji,
       airingAt: libraryEntry.nextAiringAt,
+      notificationEmail: user.notificationEmail,
+      notifyByEmail: user.notifyNewEpisodesByEmail,
     })
     .from(rssFilter)
     .innerJoin(libraryEntry, eq(libraryEntry.id, rssFilter.libraryEntryId))
+    .innerJoin(user, eq(user.id, libraryEntry.userId))
     .where(and(isNotNull(rssFilter.pollNextAt), lte(rssFilter.pollNextAt, now)))
     .orderBy(sql`${rssFilter.pollNextAt} asc`)
     .limit(MAX_FETCHES_PER_TICK);
@@ -177,6 +181,17 @@ async function pollDueFeeds(now: Date) {
           ? `${feed.title} ep ${feed.targetEpisode} found (+${result.added}) — sleeping until the next episode`
           : `${feed.title} ep ${feed.targetEpisode} not up yet${state.nextAt ? `, retry ${state.nextAt.toISOString()}` : ", gave up"}`
       );
+
+      // Best-effort: a mail failure must not affect poll scheduling, so it's
+      // caught here rather than by the outer catch, which backs off instead.
+      if (found && feed.notifyByEmail && feed.notificationEmail) {
+        await notifyNewEpisode({
+          to: feed.notificationEmail,
+          titleRomaji: feed.title,
+          episodeNumber: feed.targetEpisode,
+          libraryEntryId: feed.libraryEntryId,
+        }).catch((error) => log(`${feed.title}: notification email failed`, error));
+      }
     } catch (error) {
       // One unreachable feed must never stop the others. Count it as an
       // attempt so a persistently broken feed backs off instead of spinning.

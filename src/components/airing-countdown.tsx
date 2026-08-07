@@ -22,7 +22,7 @@ function formatGap(ms: number, { short = false } = {}) {
  * whatever it computes is already stale by the time the page is read. So the
  * value starts null and is filled in on mount, then refreshed each minute.
  */
-function useNow() {
+export function useNow() {
   const [now, setNow] = useState<number | null>(null);
 
   useEffect(() => {

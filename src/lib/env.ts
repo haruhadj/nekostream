@@ -23,6 +23,25 @@ const envSchema = z.object({
   // PKCE is hardcoded to S256 — so the verifier is supplied via env instead.
   // Must be 43-128 unreserved characters.
   MAL_CODE_VERIFIER: z.string().min(43).max(128),
+
+  /**
+   * Outgoing SMTP for the new-episode notification email. All optional —
+   * unset means the feature is a logged no-op rather than a startup failure,
+   * since most self-hosted instances will never turn it on. See
+   * lib/email/mailer.ts.
+   */
+  SMTP_HOST: z.preprocess((v) => v || undefined, z.string().min(1).optional()),
+  SMTP_PORT: z.preprocess(
+    (v) => v || undefined,
+    z.coerce.number().int().positive().optional()
+  ),
+  SMTP_USER: z.preprocess((v) => v || undefined, z.string().min(1).optional()),
+  SMTP_PASS: z.preprocess((v) => v || undefined, z.string().min(1).optional()),
+  SMTP_FROM: z.preprocess((v) => v || undefined, z.string().min(1).optional()),
+  SMTP_SECURE: z.preprocess(
+    (v) => v || undefined,
+    z.enum(["true", "false"]).optional()
+  ),
 });
 
 type Env = z.infer<typeof envSchema>;

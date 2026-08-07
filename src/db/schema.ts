@@ -20,6 +20,27 @@ export const user = sqliteTable("user", {
    * whose AniList account is genuinely empty.
    */
   anilistSyncedAt: integer("anilist_synced_at", { mode: "timestamp" }),
+
+  /**
+   * Where the new-episode email goes. Not `email` — AniList and MAL return no
+   * real address, so that column holds a synthesized `id@provider.local`
+   * placeholder (see fetchAniListUser/fetchMalUser in lib/auth.ts) that
+   * nothing can actually deliver to. Null until the user sets one in Settings.
+   */
+  notificationEmail: text("notification_email"),
+
+  /**
+   * App-wide toggle for the new-episode email. Still scoped per-anime by
+   * whether that anime has a saved rss_filter — see lib/airing/poller.ts,
+   * which is the only place that sends this mail, and requires
+   * notificationEmail to be set before it will.
+   */
+  notifyNewEpisodesByEmail: integer("notify_new_episodes_by_email", {
+    mode: "boolean",
+  })
+    .default(false)
+    .notNull(),
+
   createdAt: integer("created_at", { mode: "timestamp" })
     .$defaultFn(() => new Date())
     .notNull(),

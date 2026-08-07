@@ -54,6 +54,22 @@ it unset and the addon URL follows the incoming request. When the app is
 reached on one https hostname throughout, it is redundant — set it to the same
 value or omit it.
 
+### Email notifications
+
+| Variable       | Required | What it is                                                |
+| -------------- | -------- | ---------------------------------------------------------- |
+| `SMTP_HOST`    | no       | SMTP server host. Unset disables the feature entirely.     |
+| `SMTP_PORT`    | no       | SMTP port. Defaults to `587`.                               |
+| `SMTP_USER`    | no       | SMTP username, if the server requires auth.                 |
+| `SMTP_PASS`    | no       | SMTP password, if the server requires auth.                 |
+| `SMTP_FROM`    | no       | The `From` address. Falls back to `SMTP_USER`.              |
+| `SMTP_SECURE`  | no       | `"true"` for implicit TLS (typically port 465).             |
+
+All optional — with `SMTP_HOST` unset, sending is a logged no-op and the
+Settings toggle has no effect. AniList and MyAnimeList never return a real
+email address, so the address a notification goes to is entered by hand in
+Settings, separately from the account's login identity.
+
 ## Deploy
 
 ```bash
@@ -113,3 +129,13 @@ npm run dev
 - **Progress** — writes land in the local database first, then push to the
   enabled trackers independently. One tracker failing never blocks the other or
   discards the local write.
+- **Calendar** — `/calendar` lists each library entry's next episode, grouped
+  by day, from the broadcast times the poller already syncs from AniList every
+  six hours. It shows one upcoming episode per show, not a full multi-week
+  schedule — that's all the data model tracks.
+- **Notifications** — the poller sends one email per episode, exactly when a
+  feed's target episode is found (see `pollDueFeeds` in `lib/airing/poller.ts`)
+  — never on a manual refresh, which would otherwise re-notify for a show's
+  entire back catalog the moment its feed is first saved. Requires both a
+  notification address and the toggle in Settings, plus SMTP configuration
+  above.

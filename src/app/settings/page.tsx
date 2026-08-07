@@ -1,12 +1,17 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { eq } from "drizzle-orm";
 
+import { NotificationSettings } from "@/components/notification-settings";
 import { OAuthButton } from "@/components/oauth-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SiteHeader } from "@/components/site-header";
 import { StremioInstall } from "@/components/stremio-install";
+import { db } from "@/db";
+import { user } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { isEmailConfigured } from "@/lib/email/mailer";
 
 /** Error codes better-auth appends to the callback URL when linking fails. */
 const LINK_ERRORS: Record<string, string> = {
@@ -28,9 +33,17 @@ export default async function SettingsPage({
   // AniList gates everything — MAL linking is only reachable once signed in.
   if (!session) redirect("/login");
 
-  const accounts = await auth.api.listUserAccounts({
-    headers: await headers(),
-  });
+  const [accounts, [notificationSettings]] = await Promise.all([
+    auth.api.listUserAccounts({ headers: await headers() }),
+    db
+      .select({
+        notificationEmail: user.notificationEmail,
+        notifyNewEpisodesByEmail: user.notifyNewEpisodesByEmail,
+      })
+      .from(user)
+      .where(eq(user.id, session.user.id))
+      .limit(1),
+  ]);
   const anilistLinked = accounts.some((a) => a.providerId === "anilist");
   const malLinked = accounts.some((a) => a.providerId === "mal");
 
@@ -111,6 +124,23 @@ export default async function SettingsPage({
             poller finds them — no reinstall needed.
           </p>
           <StremioInstall />
+        </section>
+
+        <section className="mt-3 card p-5 sm:mt-4 sm:p-6">
+          <h2 className="text-sm font-semibold">Notifications</h2>
+          <p className="mt-2 text-sm leading-relaxed text-muted">
+            Get an email when a new episode shows up for a title with a saved
+            Nyaa feed.
+          </p>
+          <div className="mt-5">
+            <NotificationSettings
+              initialEmail={notificationSettings?.notificationEmail ?? null}
+              initialEnabled={
+                notificationSettings?.notifyNewEpisodesByEmail ?? false
+              }
+              emailConfigured={isEmailConfigured()}
+            />
+          </div>
         </section>
 
         <section className="mt-10 border-t border-edge pt-8">
