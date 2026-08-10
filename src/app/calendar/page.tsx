@@ -50,7 +50,7 @@ export default async function CalendarPage() {
 
       <main className="pb-tabbar mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-10">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-2xl">
-          Calendar
+          Schedule
         </h1>
         <p className="mt-2 text-sm text-muted">
           The next episode for everything in your library that&rsquo;s still

@@ -25,7 +25,7 @@ export function SiteHeader({ active }: { active?: Tab }) {
             <NavLink href="/" label="Library" isActive={active === "library"} />
             <NavLink
               href="/calendar"
-              label="Calendar"
+              label="Schedule"
               isActive={active === "calendar"}
             />
             <NavLink
@@ -85,7 +85,7 @@ function TabBar({ active }: { active?: Tab }) {
 
         <TabLink
           href="/calendar"
-          label="Calendar"
+          label="Schedule"
           isActive={active === "calendar"}
         >
           <CalendarDays
