@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import { Button, buttonVariants } from "@/components/ui/button";
 import { apiRequest, apiSend } from "@/lib/client/request";
 
 type TokenResponse = { token: string; url: string };
@@ -81,35 +82,31 @@ export function StremioInstall() {
 
   return (
     <div className="mt-5">
-      <code className="block overflow-x-auto rounded-xl border border-edge bg-surface/60 px-4 py-3 font-mono text-xs text-muted">
+      <code className="block overflow-x-auto rounded-lg border border-border bg-surface/60 px-4 py-3 font-mono text-xs text-muted">
         {state.url}
       </code>
 
       <div className="mt-3 flex flex-wrap gap-2">
-        <button
-          type="button"
-          onClick={() => copy(state.url)}
-          className="rounded-xl border border-edge bg-surface/60 px-4 py-2.5 text-sm font-semibold transition hover:border-anilist/60"
-        >
+        <Button variant="secondary" onClick={() => copy(state.url)}>
           {copied ? "Copied" : "Copy URL"}
-        </button>
+        </Button>
 
         {/* Stremio registers the stremio:// scheme — same URL, one click. */}
         <a
           href={state.url.replace(/^https?:\/\//, "stremio://")}
-          className="rounded-xl border border-edge bg-surface/60 px-4 py-2.5 text-sm font-semibold transition hover:border-anilist/60"
+          className={buttonVariants({ variant: "secondary" })}
         >
           Install in Stremio
         </a>
 
-        <button
-          type="button"
+        <Button
+          variant="ghost"
           onClick={rotate}
           disabled={rotating}
-          className="rounded-xl px-4 py-2.5 text-sm font-semibold text-muted transition hover:text-rose-400 disabled:opacity-50"
+          className="hover:text-rose-400"
         >
           {rotating ? "Rotating…" : "Rotate token"}
-        </button>
+        </Button>
       </div>
 
       <p className="mt-3 text-xs leading-relaxed text-muted">

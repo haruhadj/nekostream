@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Minus, Plus } from "lucide-react";
 
 import { apiSend } from "@/lib/client/request";
 import { PROVIDER_LABEL } from "@/lib/providers";
@@ -116,13 +117,13 @@ export function ProgressControl() {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-1 rounded-full border border-edge bg-ink/40 p-1">
+      <div className="flex items-center gap-1 rounded-full border border-border bg-background/40 p-1">
         <StepButton
           label="Decrease progress"
           disabled={saving || progress <= 0}
           onClick={() => setProgress(progress - 1)}
         >
-          –
+          <Minus className="h-4 w-4" strokeWidth={2} />
         </StepButton>
 
         <span className="min-w-20 text-center text-base font-medium tabular-nums sm:text-sm">
@@ -137,7 +138,7 @@ export function ProgressControl() {
           disabled={saving}
           onClick={() => setProgress(progress + 1)}
         >
-          +
+          <Plus className="h-4 w-4" strokeWidth={2} />
         </StepButton>
       </div>
 
@@ -175,7 +176,7 @@ function StepButton({
       disabled={disabled}
       onClick={onClick}
       // 44px on touch, back to a compact 28px once there is a pointer.
-      className="h-11 w-11 rounded-full text-lg font-semibold transition hover:bg-surface active:bg-surface focus-ring disabled:opacity-40 sm:h-7 sm:w-7 sm:text-sm"
+      className="flex h-11 w-11 items-center justify-center rounded-full transition-colors hover:bg-surface active:bg-surface focus-ring disabled:opacity-40 sm:h-7 sm:w-7"
     >
       {children}
     </button>

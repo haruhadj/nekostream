@@ -2,6 +2,9 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { apiSend } from "@/lib/client/request";
 
 type SettingsResponse = {
@@ -81,28 +84,29 @@ export function NotificationSettings({
   return (
     <div className="flex flex-col gap-3">
       {!emailConfigured ? (
-        <p className="rounded-lg border border-edge bg-surface/50 px-3 py-2 text-xs text-muted">
+        <p className="rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-muted">
           This server has no SMTP configured yet — the address below saves,
           but nothing will actually send until it does.
         </p>
       ) : null}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input
+        <Input
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
-          className="flex-1 rounded-lg border border-edge bg-ink px-3 py-2 text-sm focus:border-anilist focus:outline-none"
+          className="min-h-0 flex-1 py-2"
         />
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="shrink-0"
           onClick={saveEmail}
           disabled={savingEmail || !dirty}
-          className="shrink-0 rounded-lg border border-edge px-4 py-2 text-sm font-medium transition hover:bg-surface disabled:opacity-60"
         >
           {savingEmail ? "Saving…" : "Save address"}
-        </button>
+        </Button>
       </div>
 
       <button
@@ -113,25 +117,12 @@ export function NotificationSettings({
         disabled={savingToggle || !savedEmail}
         title={savedEmail ? undefined : "Save an address above first"}
         className={[
-          "flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition",
+          "flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors",
           "disabled:opacity-60",
-          enabled ? "border-anilist bg-anilist/10" : "border-edge",
+          enabled ? "border-accent bg-accent/10" : "border-border",
         ].join(" ")}
       >
-        <span
-          aria-hidden="true"
-          className={[
-            "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition",
-            enabled ? "bg-anilist" : "bg-edge",
-          ].join(" ")}
-        >
-          <span
-            className={[
-              "h-4 w-4 rounded-full bg-ink transition",
-              enabled ? "translate-x-4" : "translate-x-0",
-            ].join(" ")}
-          />
-        </span>
+        <Switch checked={enabled} />
         <span className="text-xs leading-snug">
           {savedEmail
             ? enabled

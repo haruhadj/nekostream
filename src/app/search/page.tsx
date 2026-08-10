@@ -41,7 +41,7 @@ export default async function SearchPage() {
         </p>
 
         {error ? (
-          <p className="mt-6 rounded-xl border border-edge bg-surface/50 px-4 py-3 text-sm">
+          <p className="mt-6 rounded-xl border border-border bg-surface/50 px-4 py-3 text-sm">
             {error}
           </p>
         ) : null}

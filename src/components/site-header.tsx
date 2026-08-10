@@ -1,6 +1,8 @@
 import Link from "next/link";
+import { CalendarDays, LibraryBig, Search, Settings } from "lucide-react";
 
-import { SearchIconPaths } from "@/components/ui/search-icon";
+import { Wordmark } from "@/components/ui/wordmark";
+import { cn } from "@/lib/cn";
 
 type Tab = "library" | "calendar" | "search" | "settings";
 
@@ -12,17 +14,10 @@ type Tab = "library" | "calendar" | "search" | "settings";
 export function SiteHeader({ active }: { active?: Tab }) {
   return (
     <>
-      <header className="glass sticky top-0 z-40 border-b border-edge/70 pt-[env(safe-area-inset-top)]">
+      <header className="glass sticky top-0 z-40 border-b border-border pt-[env(safe-area-inset-top)]">
         <div className="mx-auto flex w-full max-w-5xl items-center gap-6 px-4 py-3.5 sm:px-6 sm:py-4">
-          <Link
-            href="/"
-            className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-cream"
-          >
-            <span
-              aria-hidden="true"
-              className="h-2 w-2 rounded-full bg-anilist shadow-[0_0_12px_var(--anilist)]"
-            />
-            NekoStream
+          <Link href="/">
+            <Wordmark />
           </Link>
 
           {/* The top links duplicate the tab bar, so they stand down on phones. */}
@@ -42,7 +37,7 @@ export function SiteHeader({ active }: { active?: Tab }) {
 
           <Link
             href="/settings"
-            className="ml-auto hidden text-sm text-muted transition-colors hover:text-cream sm:block"
+            className="ml-auto hidden text-sm text-muted transition-colors hover:text-foreground sm:block"
           >
             Settings
           </Link>
@@ -68,8 +63,8 @@ function NavLink({
       href={href}
       className={
         isActive
-          ? "text-cream underline decoration-anilist decoration-2 underline-offset-8"
-          : "text-muted transition-colors hover:text-cream"
+          ? "text-foreground underline decoration-accent decoration-2 underline-offset-8"
+          : "text-muted transition-colors hover:text-foreground"
       }
     >
       {label}
@@ -81,11 +76,11 @@ function TabBar({ active }: { active?: Tab }) {
   return (
     <nav
       aria-label="Primary"
-      className="glass fixed inset-x-0 bottom-0 z-40 border-t border-edge/70 pb-[env(safe-area-inset-bottom)] sm:hidden"
+      className="glass fixed inset-x-0 bottom-0 z-40 border-t border-border pb-[env(safe-area-inset-bottom)] sm:hidden"
     >
       <ul className="flex h-[var(--tabbar)] items-stretch">
         <TabLink href="/" label="Library" isActive={active === "library"}>
-          <path d="M4 5.5A1.5 1.5 0 0 1 5.5 4h3A1.5 1.5 0 0 1 10 5.5v13A1.5 1.5 0 0 1 8.5 20h-3A1.5 1.5 0 0 1 4 18.5v-13ZM13 5.5A1.5 1.5 0 0 1 14.5 4h1A1.5 1.5 0 0 1 17 5.5v13a1.5 1.5 0 0 1-1.5 1.5h-1a1.5 1.5 0 0 1-1.5-1.5v-13Z" />
+          <LibraryBig aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
         </TabLink>
 
         <TabLink
@@ -93,12 +88,15 @@ function TabBar({ active }: { active?: Tab }) {
           label="Calendar"
           isActive={active === "calendar"}
         >
-          <path d="M5.5 5.5h13A1.5 1.5 0 0 1 20 7v12a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19V7a1.5 1.5 0 0 1 1.5-1.5Z" />
-          <path d="M4 9.5h16M8 4v3M16 4v3" strokeLinecap="round" />
+          <CalendarDays
+            aria-hidden="true"
+            className="h-5 w-5"
+            strokeWidth={1.75}
+          />
         </TabLink>
 
         <TabLink href="/search" label="Search" isActive={active === "search"}>
-          <SearchIconPaths />
+          <Search aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
         </TabLink>
 
         <TabLink
@@ -106,11 +104,7 @@ function TabBar({ active }: { active?: Tab }) {
           label="Settings"
           isActive={active === "settings"}
         >
-          <circle cx="12" cy="12" r="3" />
-          <path
-            d="M12 3.5v2M12 18.5v2M20.5 12h-2M5.5 12h-2M18 6l-1.4 1.4M7.4 16.6 6 18M18 18l-1.4-1.4M7.4 7.4 6 6"
-            strokeLinecap="round"
-          />
+          <Settings aria-hidden="true" className="h-5 w-5" strokeWidth={1.75} />
         </TabLink>
       </ul>
     </nav>
@@ -126,7 +120,7 @@ function TabLink({
   href: string;
   label: string;
   isActive?: boolean;
-  /** The paths of a 24×24 icon, drawn as strokes by the wrapper. */
+  /** A pre-rendered Lucide icon. */
   children: React.ReactNode;
 }) {
   return (
@@ -134,25 +128,19 @@ function TabLink({
       <Link
         href={href}
         aria-current={isActive ? "page" : undefined}
-        className={[
+        className={cn(
           "flex h-full flex-col items-center justify-center gap-1 text-[10px] font-medium",
           "transition-colors active:bg-surface/50",
-          isActive ? "text-cream" : "text-muted",
-        ].join(" ")}
+          isActive ? "text-foreground" : "text-muted"
+        )}
       >
         <span
-          className={[
+          className={cn(
             "flex h-7 w-14 items-center justify-center rounded-full transition-colors",
-            isActive ? "bg-anilist/15 text-anilist" : "",
-          ].join(" ")}
+            isActive ? "bg-accent/15 text-accent" : ""
+          )}
         >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-5 w-5 fill-none stroke-current stroke-[1.75]"
-          >
-            {children}
-          </svg>
+          {children}
         </span>
         {label}
       </Link>

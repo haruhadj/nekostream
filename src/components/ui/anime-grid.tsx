@@ -27,7 +27,7 @@ export function AnimePoster({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="relative aspect-[2/3] overflow-hidden rounded-2xl border border-edge bg-surface shadow-lg shadow-ink/50 ring-1 ring-inset ring-white/5">
+    <div className="relative aspect-[2/3] overflow-hidden rounded-xl border border-border bg-surface shadow-lg shadow-black/50 ring-1 ring-inset ring-white/5">
       {coverImageUrl ? (
         /* AniList CDN images; a plain img avoids remote-host config for a
            domain the user cannot change. */
@@ -47,7 +47,7 @@ export function AnimePoster({
 
 export function AnimeTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-anilist">
+    <p className="mt-2.5 line-clamp-2 text-sm font-medium leading-snug transition-colors group-hover:text-accent">
       {children}
     </p>
   );
@@ -58,7 +58,7 @@ export function PosterScrim() {
   return (
     <div
       aria-hidden="true"
-      className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-ink/85 to-transparent"
+      className="absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-background/85 to-transparent"
     />
   );
 }

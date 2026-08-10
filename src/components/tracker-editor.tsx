@@ -1,8 +1,12 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { ChevronDown, Minus, Plus, X } from "lucide-react";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Sheet } from "@/components/ui/sheet";
+import { Switch } from "@/components/ui/switch";
 import { useTrackerEntry } from "@/components/use-tracker-entry";
 import { PROVIDER_LABEL, PROVIDERS, type Provider } from "@/lib/providers";
 import type { MirrorStatus as Status } from "@/lib/sync/mirror";
@@ -25,7 +29,7 @@ const STATUS_LABELS: { value: Status; label: string }[] = [
 const PROVIDER: Record<Target, { label: string; accent: string }> = {
   anilist: { label: PROVIDER_LABEL.anilist, accent: "var(--anilist)" },
   mal: { label: PROVIDER_LABEL.mal, accent: "var(--mal)" },
-  both: { label: "Both trackers", accent: "var(--cream)" },
+  both: { label: "Both trackers", accent: "var(--foreground)" },
 };
 
 /**
@@ -104,8 +108,8 @@ function TrackerChip({
         "min-h-[38px] transition hover:bg-surface active:translate-y-px",
         "focus-ring",
         disabled
-          ? "cursor-not-allowed border-edge text-muted opacity-50"
-          : "text-cream",
+          ? "cursor-not-allowed border-border text-muted opacity-50"
+          : "text-foreground",
       ].join(" ")}
     >
       <span
@@ -114,9 +118,7 @@ function TrackerChip({
         style={{ background: accent }}
       />
       {label}
-      <span aria-hidden="true" className="text-muted">
-        ⌄
-      </span>
+      <ChevronDown aria-hidden="true" className="h-3.5 w-3.5 text-muted" strokeWidth={1.75} />
     </button>
   );
 }
@@ -188,8 +190,8 @@ function TrackerDialog({
       label={`Edit ${label} entry`}
       onClose={onClose}
       panelClassName={[
-        "w-full max-w-md rounded-t-2xl border border-edge bg-ink p-5",
-        "max-h-[90vh] overflow-y-auto sm:rounded-2xl",
+        "w-full max-w-md rounded-t-xl border border-border bg-background p-5",
+        "max-h-[90vh] overflow-y-auto sm:rounded-xl",
       ].join(" ")}
     >
       <div className="flex items-center justify-between gap-4">
@@ -205,9 +207,9 @@ function TrackerDialog({
           type="button"
           onClick={onClose}
           aria-label="Close"
-          className="rounded-lg px-2 py-1 text-muted transition hover:bg-surface hover:text-cream"
+          className="rounded-lg px-2 py-1 text-muted transition-colors hover:bg-surface hover:text-foreground"
         >
-          ✕
+          <X aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
         </button>
       </div>
 
@@ -222,7 +224,7 @@ function TrackerDialog({
             .map(([p]) => (
               <p
                 key={p}
-                className="mt-4 rounded-lg border border-edge bg-surface/50 px-3 py-2 text-xs text-muted"
+                className="mt-4 rounded-lg border border-border bg-surface/50 px-3 py-2 text-xs text-muted"
               >
                 Not on your {PROVIDER[p].label} list yet — saving adds it.
               </p>
@@ -236,7 +238,7 @@ function TrackerDialog({
               <ul className="mt-1.5 space-y-0.5">
                 {loadedEntries.map(([p, e]) => (
                   <li key={p} className="text-[11px] text-muted">
-                    <span className="text-cream">{PROVIDER[p].label}</span>{" "}
+                    <span className="text-foreground">{PROVIDER[p].label}</span>{" "}
                     {e.progress} ep · {e.status ?? "no status"}
                   </li>
                 ))}
@@ -261,8 +263,8 @@ function TrackerDialog({
                     className={[
                       "rounded-full border px-3 py-1.5 text-xs font-medium transition",
                       form.status === option.value
-                        ? "border-anilist bg-anilist text-ink"
-                        : "border-edge text-muted hover:text-cream",
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border text-muted hover:text-foreground",
                     ].join(" ")}
                   >
                     {option.label}
@@ -282,10 +284,10 @@ function TrackerDialog({
                     }))
                   }
                 >
-                  –
+                  <Minus className="h-4 w-4" strokeWidth={2} />
                 </Stepper>
 
-                <input
+                <Input
                   type="number"
                   min={0}
                   value={form.progress}
@@ -295,7 +297,7 @@ function TrackerDialog({
                       progress: Math.max(0, Number(e.target.value) || 0),
                     }))
                   }
-                  className="w-20 rounded-lg border border-edge bg-surface px-3 py-2 text-center text-sm tabular-nums outline-none focus-visible:border-anilist"
+                  className="min-h-0 w-20 py-2 text-center tabular-nums"
                 />
 
                 <Stepper
@@ -304,7 +306,7 @@ function TrackerDialog({
                     setForm((f) => ({ ...f, progress: f.progress + 1 }))
                   }
                 >
-                  +
+                  <Plus className="h-4 w-4" strokeWidth={2} />
                 </Stepper>
 
                 {total ? (
@@ -317,7 +319,7 @@ function TrackerDialog({
                         status: "completed",
                       }))
                     }
-                    className="ml-1 rounded-full border border-edge px-3 py-1.5 text-xs text-muted transition hover:text-cream"
+                    className="ml-1 rounded-full border border-border px-3 py-1.5 text-xs text-muted transition hover:text-foreground"
                   >
                     All {total}
                   </button>
@@ -336,8 +338,8 @@ function TrackerDialog({
                     className={[
                       "h-9 w-9 rounded-lg border text-xs font-medium tabular-nums transition",
                       form.score === value
-                        ? "border-anilist bg-anilist text-ink"
-                        : "border-edge text-muted hover:text-cream",
+                        ? "border-accent bg-accent text-accent-foreground"
+                        : "border-border text-muted hover:text-foreground",
                     ].join(" ")}
                   >
                     {value === 0 ? "–" : value}
@@ -353,24 +355,11 @@ function TrackerDialog({
                 aria-checked={sync}
                 onClick={() => setSync((value) => !value)}
                 className={[
-                  "flex w-full items-center gap-3 rounded-xl border px-3.5 py-3 text-left transition",
-                  sync ? "border-anilist bg-anilist/10" : "border-edge",
+                  "flex w-full items-center gap-3 rounded-lg border px-3.5 py-3 text-left transition-colors",
+                  sync ? "border-accent bg-accent/10" : "border-border",
                 ].join(" ")}
               >
-                <span
-                  aria-hidden="true"
-                  className={[
-                    "flex h-5 w-9 shrink-0 items-center rounded-full p-0.5 transition",
-                    sync ? "bg-anilist" : "bg-edge",
-                  ].join(" ")}
-                >
-                  <span
-                    className={[
-                      "h-4 w-4 rounded-full bg-ink transition",
-                      sync ? "translate-x-4" : "translate-x-0",
-                    ].join(" ")}
-                  />
-                </span>
+                <Switch checked={sync} />
                 <span className="text-xs leading-snug">
                   {sync
                     ? `Marking episodes here updates ${syncLabel}.`
@@ -389,25 +378,16 @@ function TrackerDialog({
           ))}
 
           <div className="mt-6 flex gap-2">
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving}
-              className="flex-1 rounded-xl bg-anilist px-4 py-3 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
-            >
+            <Button className="flex-1" onClick={save} disabled={saving}>
               {saving
                 ? "Saving…"
                 : target === "both"
                   ? "Save to both"
                   : `Save to ${label}`}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl border border-edge px-4 py-3 text-sm font-medium text-muted transition hover:text-cream"
-            >
+            </Button>
+            <Button variant="outline" onClick={onClose}>
               Cancel
-            </button>
+            </Button>
           </div>
 
           <p className="mt-3 text-[11px] leading-relaxed text-muted">
@@ -454,7 +434,7 @@ function Stepper({
       type="button"
       aria-label={label}
       onClick={onClick}
-      className="h-10 w-10 rounded-lg border border-edge text-sm font-semibold transition hover:bg-surface"
+      className="flex h-10 w-10 items-center justify-center rounded-lg border border-border transition-colors hover:bg-surface"
     >
       {children}
     </button>

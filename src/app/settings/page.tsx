@@ -8,6 +8,7 @@ import { OAuthButton } from "@/components/oauth-button";
 import { SignOutButton } from "@/components/sign-out-button";
 import { SiteHeader } from "@/components/site-header";
 import { StremioInstall } from "@/components/stremio-install";
+import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/db";
 import { user } from "@/db/schema";
 import { auth } from "@/lib/auth";
@@ -100,7 +101,7 @@ export default async function SettingsPage({
           {malLinked ? (
             <Link
               href="/settings/mirror"
-              className="mt-5 inline-flex min-h-11 items-center rounded-full border border-edge bg-surface/60 px-5 text-sm font-semibold transition hover:border-anilist/60 active:scale-[0.97]"
+              className={buttonVariants({ variant: "secondary", className: "mt-5" })}
             >
               Compare both lists →
             </Link>
@@ -143,7 +144,7 @@ export default async function SettingsPage({
           </div>
         </section>
 
-        <section className="mt-10 border-t border-edge pt-8">
+        <section className="mt-10 border-t border-border pt-8">
           <h2 className="text-sm font-semibold">Session</h2>
           <p className="mt-2 text-sm leading-relaxed text-muted">
             Signing out leaves your library on this server — signing back in

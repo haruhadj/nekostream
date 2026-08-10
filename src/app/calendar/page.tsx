@@ -58,7 +58,7 @@ export default async function CalendarPage() {
         </p>
 
         {entries.length === 0 ? (
-          <div className="mt-10 rounded-3xl border border-dashed border-edge bg-surface/20 px-6 py-12 text-center sm:p-10">
+          <div className="mt-10 rounded-xl border border-dashed border-border bg-surface/20 px-6 py-12 text-center sm:p-10">
             <p className="mx-auto max-w-xs text-balance text-sm leading-relaxed text-muted">
               Nothing airing right now. Shows with a broadcast still ahead
               will show up here.

@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 
+import { Button } from "@/components/ui/button";
 import { apiRequest, apiSend } from "@/lib/client/request";
 import type { Serialized } from "@/lib/json";
 import type {
@@ -95,7 +96,9 @@ export function MirrorReview() {
             {phase.message}
           </p>
         ) : null}
-        <PrimaryButton onClick={scan}>Compare both lists</PrimaryButton>
+        <Button className="w-full sm:w-auto" onClick={scan}>
+          Compare both lists
+        </Button>
         <p className="mt-3 text-xs text-muted">
           Reads both accounts and shows what differs. Nothing is written until
           you choose.
@@ -118,22 +121,44 @@ export function MirrorReview() {
       {phase.kind === "done" ? (
         <Results result={phase.result} onRescan={scan} />
       ) : plan.rows.length === 0 ? (
-        <p className="mt-6 rounded-xl border border-edge bg-surface/50 px-4 py-3 text-sm text-muted">
+        <p className="mt-6 rounded-xl border border-border bg-surface/50 px-4 py-3 text-sm text-muted">
           Both lists already agree on every title they share.
         </p>
       ) : (
         <>
           <div className="mt-6 flex flex-wrap items-center gap-2">
-            <BulkButton onClick={() => setAll(plan, "suggestion")}>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setAll(plan, "suggestion")}
+            >
               Use suggested
-            </BulkButton>
-            <BulkButton onClick={() => setAll(plan, "anilist")}>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setAll(plan, "anilist")}
+            >
               AniList for all
-            </BulkButton>
-            <BulkButton onClick={() => setAll(plan, "mal")}>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setAll(plan, "mal")}
+            >
               MAL for all
-            </BulkButton>
-            <BulkButton onClick={() => setAll(plan, "skip")}>Clear</BulkButton>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="rounded-full"
+              onClick={() => setAll(plan, "skip")}
+            >
+              Clear
+            </Button>
           </div>
 
           <ul className="mt-5 space-y-3">
@@ -149,8 +174,9 @@ export function MirrorReview() {
             ))}
           </ul>
 
-          <div className="sticky bottom-0 mt-6 border-t border-edge bg-ink/95 py-4 backdrop-blur">
-            <PrimaryButton
+          <div className="sticky bottom-0 mt-6 border-t border-border bg-background/95 py-4 backdrop-blur">
+            <Button
+              className="w-full sm:w-auto"
               onClick={() => apply(plan)}
               disabled={chosenCount === 0 || phase.kind === "applying"}
             >
@@ -159,7 +185,7 @@ export function MirrorReview() {
                 : chosenCount === 0
                   ? "Choose a side to continue"
                   : `Apply ${chosenCount} ${chosenCount === 1 ? "change" : "changes"}`}
-            </PrimaryButton>
+            </Button>
             <p className="mt-2 text-xs text-muted">
               {plan.rows.length - chosenCount} left untouched.
             </p>
@@ -182,7 +208,7 @@ function Summary({ plan }: { plan: Plan }) {
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-xl border border-edge bg-surface/50 px-4 py-3">
+    <div className="rounded-xl border border-border bg-surface/50 px-4 py-3">
       <dt className="text-[11px] uppercase tracking-[0.14em] text-muted">
         {label}
       </dt>
@@ -206,7 +232,7 @@ function RowCard({
   }, [row]);
 
   return (
-    <li className="rounded-2xl border border-edge bg-surface/40 p-4">
+    <li className="rounded-xl border border-border bg-surface/40 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-medium leading-snug">{row.title}</p>
         {gap && gap > 0 ? (
@@ -268,10 +294,10 @@ function SideOption({
       aria-pressed={selected}
       className={[
         "rounded-xl border px-3.5 py-3 text-left transition",
-        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-anilist",
+        "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
         selected
-          ? "border-anilist bg-anilist/10"
-          : "border-edge hover:border-anilist/50",
+          ? "border-accent bg-accent/10"
+          : "border-border hover:border-accent/50",
       ].join(" ")}
     >
       <span className="flex items-center justify-between gap-2">
@@ -279,7 +305,7 @@ function SideOption({
           {label}
         </span>
         {suggested ? (
-          <span className="text-[10px] font-medium text-anilist">
+          <span className="text-[10px] font-medium text-accent">
             suggested
           </span>
         ) : null}
@@ -329,52 +355,11 @@ function Results({
       ) : null}
 
       <div className="mt-5">
-        <PrimaryButton onClick={onRescan}>Compare again</PrimaryButton>
+        <Button className="w-full sm:w-auto" onClick={onRescan}>
+          Compare again
+        </Button>
       </div>
     </div>
   );
 }
 
-function PrimaryButton({
-  children,
-  onClick,
-  disabled,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={disabled}
-      className={[
-        "w-full rounded-xl bg-anilist px-5 py-3 text-sm font-semibold text-ink",
-        "transition hover:brightness-110 active:translate-y-px",
-        "focus-ring",
-        "disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto",
-      ].join(" ")}
-    >
-      {children}
-    </button>
-  );
-}
-
-function BulkButton({
-  children,
-  onClick,
-}: {
-  children: React.ReactNode;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-full border border-edge px-3.5 py-1.5 text-xs font-medium text-muted transition hover:border-anilist/60 hover:text-cream"
-    >
-      {children}
-    </button>
-  );
-}

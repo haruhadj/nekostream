@@ -71,7 +71,7 @@ export function SheetGrabHandle() {
   return (
     <span
       aria-hidden="true"
-      className="mx-auto -mt-1 h-1 w-10 shrink-0 rounded-full bg-edge sm:hidden"
+      className="mx-auto -mt-1 h-1 w-10 shrink-0 rounded-full bg-border sm:hidden"
     />
   );
 }

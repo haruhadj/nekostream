@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ExternalLink } from "lucide-react";
 
 import { NyaaFilterSetup } from "@/components/nyaa-filter-setup";
+import { Button } from "@/components/ui/button";
 import { apiSend } from "@/lib/client/request";
 import type { SavedFilter } from "@/lib/nyaa/filter";
 
@@ -68,7 +70,7 @@ export function NyaaFilterPanel({
           <button
             type="button"
             onClick={() => setEditing(false)}
-            className="mt-3 text-xs text-muted transition-colors hover:text-cream"
+            className="mt-3 text-xs text-muted transition-colors hover:text-foreground"
           >
             Cancel
           </button>
@@ -84,7 +86,7 @@ export function NyaaFilterPanel({
           <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted">
             Nyaa feed
           </p>
-          <p className="mt-1 truncate font-mono text-xs text-cream">
+          <p className="mt-1 truncate font-mono text-xs text-foreground">
             {savedFilter?.query}
           </p>
         </div>
@@ -93,27 +95,19 @@ export function NyaaFilterPanel({
           href={`https://nyaa.si/?q=${encodeURIComponent(savedFilter?.query ?? "")}&c=${savedFilter?.category ?? "1_2"}&f=${savedFilter?.filter ?? "0"}`}
           target="_blank"
           rel="noreferrer"
-          className="text-xs text-muted transition-colors hover:text-cream"
+          className="inline-flex items-center gap-1 text-xs text-muted transition-colors hover:text-foreground"
         >
-          Open on Nyaa ↗
+          Open on Nyaa
+          <ExternalLink aria-hidden="true" className="h-3 w-3" strokeWidth={2} />
         </a>
 
-        <button
-          type="button"
-          onClick={() => setEditing(true)}
-          className="rounded-lg border border-edge px-3 py-1.5 text-xs font-medium transition hover:bg-surface"
-        >
+        <Button variant="outline" size="sm" onClick={() => setEditing(true)}>
           Change feed
-        </button>
+        </Button>
 
-        <button
-          type="button"
-          onClick={remove}
-          disabled={removing}
-          className="rounded-lg border border-edge px-3 py-1.5 text-xs font-medium text-rose-400 transition hover:bg-rose-400/10 disabled:opacity-60"
-        >
+        <Button variant="destructive" size="sm" onClick={remove} disabled={removing}>
           {removing ? "Removing…" : "Stop tracking"}
-        </button>
+        </Button>
       </div>
 
       {error ? <p className="mt-3 text-xs text-rose-400">{error}</p> : null}

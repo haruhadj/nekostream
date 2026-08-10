@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
 import { authClient } from "@/lib/auth-client";
 
 export function SignOutButton() {
@@ -23,20 +24,13 @@ export function SignOutButton() {
   }
 
   return (
-    <button
-      type="button"
+    <Button
+      variant="secondary"
+      className="w-full hover:border-rose-500/60 hover:text-rose-400 sm:w-auto"
       onClick={signOut}
       disabled={pending}
-      className={[
-        "w-full rounded-xl border border-edge bg-surface/60 px-5 py-3",
-        "text-sm font-semibold tracking-tight text-cream",
-        "transition duration-200 ease-out hover:border-rose-500/60 hover:text-rose-400",
-        "focus-ring",
-        "active:translate-y-px disabled:cursor-wait disabled:opacity-60",
-        "sm:w-auto",
-      ].join(" ")}
     >
       {pending ? "Signing out…" : "Sign out"}
-    </button>
+    </Button>
   );
 }

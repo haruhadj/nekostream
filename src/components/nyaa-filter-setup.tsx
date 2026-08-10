@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { apiRequest, apiSend } from "@/lib/client/request";
 import type { DiscoveryResult } from "@/lib/nyaa/discover";
 import type { SavedFilter } from "@/lib/nyaa/filter";
@@ -129,20 +131,15 @@ export function NyaaFilterSetup({
       </p>
 
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
-        <input
+        <Input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Search terms"
-          className="flex-1 rounded-lg border border-edge bg-ink px-3 py-2 text-sm focus:border-anilist focus:outline-none"
+          className="flex-1"
         />
-        <button
-          type="button"
-          onClick={() => probe(title)}
-          disabled={probing}
-          className="rounded-lg border border-edge px-4 py-2 text-sm font-medium transition hover:bg-surface disabled:opacity-60"
-        >
+        <Button variant="outline" onClick={() => probe(title)} disabled={probing}>
           {probing ? "Searching…" : "Search Nyaa"}
-        </button>
+        </Button>
       </div>
 
       {error ? <p className="mt-4 text-sm">{error}</p> : null}
@@ -177,20 +174,19 @@ export function NyaaFilterSetup({
         </>
       ) : null}
 
-      <div className="mt-6 border-t border-edge pt-5">
+      <div className="mt-6 border-t border-border pt-5">
         <p className="text-xs text-muted">Feed search</p>
-        <p className="mt-1 break-all font-mono text-xs text-cream">
+        <p className="mt-1 break-all font-mono text-xs text-foreground">
           {composedQuery || "—"}
         </p>
 
-        <button
-          type="button"
+        <Button
+          className="mt-4"
           onClick={save}
           disabled={saving || !composedQuery.trim()}
-          className="mt-4 rounded-xl bg-anilist px-5 py-2.5 text-sm font-semibold text-ink transition hover:brightness-110 disabled:opacity-60"
         >
           {saving ? "Saving…" : "Save feed and load episodes"}
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -230,8 +226,8 @@ function Picker({
                 "rounded-full px-3 py-1.5 text-xs font-medium transition",
                 "focus-ring",
                 isSelected
-                  ? "bg-anilist text-ink"
-                  : "border border-edge text-cream hover:bg-surface",
+                  ? "bg-accent text-accent-foreground"
+                  : "border border-border text-foreground hover:bg-surface",
               ].join(" ")}
             >
               {option}

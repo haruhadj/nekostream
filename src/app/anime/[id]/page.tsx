@@ -2,6 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
+import { ArrowLeft } from "lucide-react";
 
 import { AiringCountdown } from "@/components/airing-countdown";
 import { TrackerEditors } from "@/components/tracker-editor";
@@ -88,9 +89,10 @@ export default async function AnimeDetailPage({
       <main className="pb-tabbar mx-auto w-full max-w-4xl px-4 pt-4 sm:px-6 sm:pt-8">
         <Link
           href="/"
-          className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-full px-2 text-xs text-muted transition-colors hover:text-cream"
+          className="-ml-2 inline-flex min-h-10 items-center gap-1 rounded-lg px-2 text-xs text-muted transition-colors hover:text-foreground"
         >
-          <span aria-hidden="true">←</span> Library
+          <ArrowLeft aria-hidden="true" className="h-3.5 w-3.5" strokeWidth={2} />
+          Library
         </Link>
 
         <ProgressProvider
@@ -101,7 +103,7 @@ export default async function AnimeDetailPage({
           {/* Cover beside the title even on a phone: stacking pushed everything
             that matters — progress, sync, episodes — below the fold. */}
           <div className="mt-3 flex flex-row gap-4 sm:mt-5 sm:gap-6">
-            <div className="w-28 shrink-0 self-start overflow-hidden rounded-2xl border border-edge bg-surface shadow-xl shadow-ink/60 ring-1 ring-inset ring-white/5 sm:w-36">
+            <div className="w-28 shrink-0 self-start overflow-hidden rounded-xl border border-border bg-surface shadow-xl shadow-black/60 ring-1 ring-inset ring-white/5 sm:w-36">
               {entry.coverImageUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -125,7 +127,7 @@ export default async function AnimeDetailPage({
                   {genres.map((genre) => (
                     <li
                       key={genre}
-                      className="rounded-full border border-edge bg-surface/50 px-2.5 py-0.5 text-[11px] text-muted"
+                      className="rounded-full border border-border bg-surface/50 px-2.5 py-0.5 text-[11px] text-muted"
                     >
                       {genre}
                     </li>
@@ -146,7 +148,7 @@ export default async function AnimeDetailPage({
           {/* Full width rather than beside the cover: the controls are the reason
             this page gets opened, and the column left of them is ~200px wide on
             a phone. */}
-          <div className="mt-5 flex flex-col gap-3 rounded-2xl border border-edge bg-surface/30 p-4">
+          <div className="mt-5 flex flex-col gap-3 rounded-xl border border-border bg-surface/30 p-4">
             <ProgressControl />
             <TrackerEditors
               entryId={entry.id}

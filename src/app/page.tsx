@@ -6,6 +6,7 @@ import { asc, eq } from "drizzle-orm";
 import { AniListSync } from "@/components/anilist-sync";
 import { LibraryGrid, type LibraryCard } from "@/components/library-grid";
 import { SiteHeader } from "@/components/site-header";
+import { buttonVariants } from "@/components/ui/button";
 import { db } from "@/db";
 import { libraryEntry, user } from "@/db/schema";
 import { auth } from "@/lib/auth";
@@ -99,17 +100,17 @@ export default async function LibraryPage({
                   aria-current={isActive ? "page" : undefined}
                   className={[
                     "flex shrink-0 items-center gap-1.5 rounded-full border px-4 text-xs font-medium",
-                    "min-h-9 transition active:scale-[0.97]",
+                    "min-h-9 transition-colors active:scale-[0.97]",
                     isActive
-                      ? "border-anilist bg-anilist text-ink shadow-[0_4px_20px_-6px_var(--anilist)]"
-                      : "border-edge bg-surface/40 text-muted hover:bg-surface hover:text-cream",
+                      ? "border-accent bg-accent text-accent-foreground"
+                      : "border-border bg-surface/40 text-muted hover:bg-surface hover:text-foreground",
                   ].join(" ")}
                 >
                   {filter.label}
                   <span
                     className={[
                       "rounded-full px-1.5 py-0.5 text-[10px] tabular-nums",
-                      isActive ? "bg-ink/20" : "bg-ink/40",
+                      isActive ? "bg-background/20" : "bg-background/40",
                     ].join(" ")}
                   >
                     {count}
@@ -121,7 +122,7 @@ export default async function LibraryPage({
         ) : null}
 
         {visible.length === 0 ? (
-          <div className="mt-10 rounded-3xl border border-dashed border-edge bg-surface/20 px-6 py-12 text-center sm:p-10">
+          <div className="mt-10 rounded-xl border border-dashed border-border bg-surface/20 px-6 py-12 text-center sm:p-10">
             <p className="mx-auto max-w-xs text-balance text-sm leading-relaxed text-muted">
               {neverSynced
                 ? "Bringing in your AniList list…"
@@ -130,10 +131,7 @@ export default async function LibraryPage({
                   : "Nothing here yet. Find an anime and add it to start tracking episodes."}
             </p>
             {!neverSynced && entries.length === 0 ? (
-              <Link
-                href="/search"
-                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-anilist px-6 text-sm font-semibold text-ink transition hover:brightness-110 active:scale-[0.97]"
-              >
+              <Link href="/search" className={buttonVariants({ className: "mt-6 px-6" })}>
                 Search anime
               </Link>
             ) : null}

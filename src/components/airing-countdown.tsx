@@ -58,10 +58,10 @@ export function AiringBadge({
       className={[
         // Clears the progress bar that runs along the bottom edge of the card.
         "absolute bottom-2.5 left-2 rounded-full px-2 py-0.5",
-        "text-[10px] font-semibold tabular-nums backdrop-blur-md",
+        "font-mono text-[10px] font-semibold tabular-nums backdrop-blur-md",
         upcoming
-          ? "bg-ink/70 text-cream ring-1 ring-inset ring-white/10"
-          : "bg-anilist text-ink",
+          ? "bg-background/70 text-foreground ring-1 ring-inset ring-white/10"
+          : "bg-accent text-accent-foreground",
       ].join(" ")}
     >
       EP {episodeNumber}
@@ -93,8 +93,10 @@ export function AiringCountdown({
 
   return (
     <p className="mt-2 text-xs text-muted">
-      <span className="font-medium text-cream">Episode {episodeNumber}</span>
-      {label ? ` ${label}` : null}
+      <span className="font-medium text-foreground">Episode {episodeNumber}</span>
+      {label ? (
+        <span className="font-mono tabular-nums"> {label}</span>
+      ) : null}
     </p>
   );
 }

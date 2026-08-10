@@ -74,11 +74,11 @@ export function OAuthButton({
       style={
         primary
           ? { background: brand, color: onBrand }
-          : { borderColor: brand, color: "var(--cream)" }
+          : { borderColor: brand, color: "var(--foreground)" }
       }
       className={[
         "group relative flex w-full items-center justify-center gap-3",
-        "rounded-xl px-5 py-3.5 text-[15px] font-semibold tracking-tight",
+        "rounded-lg px-5 py-3.5 text-[15px] font-semibold tracking-tight",
         "transition duration-200 ease-out",
         "focus-ring",
         "disabled:cursor-wait disabled:opacity-60",

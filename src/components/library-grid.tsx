@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { ChevronDown, Search } from "lucide-react";
 
 import { AiringBadge } from "@/components/airing-countdown";
 import {
@@ -10,7 +11,7 @@ import {
   AnimeTitle,
   PosterScrim,
 } from "@/components/ui/anime-grid";
-import { SearchIcon } from "@/components/ui/search-icon";
+import { Input } from "@/components/ui/input";
 
 import {
   DEFAULT_SORT,
@@ -86,16 +87,18 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
         {/* The magnifier sits inside the field so the control reads as one
             pill at phone width, where there is no room for an outside label. */}
         <div className="relative min-w-0 flex-1 sm:max-w-xs">
-          <SearchIcon className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 fill-none stroke-muted stroke-2" />
-          <input
+          <Search
+            aria-hidden="true"
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted"
+            strokeWidth={2}
+          />
+          <Input
             id="library-search"
             type="search"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Filter your library"
-            // 16px on mobile: anything smaller makes iOS Safari zoom the page
-            // when the field takes focus.
-            className="min-h-11 w-full rounded-full border border-edge bg-surface/60 pl-10 pr-4 text-base placeholder:text-muted focus:border-anilist focus:outline-none sm:min-h-0 sm:py-2.5 sm:text-sm"
+            className="pl-10"
           />
         </div>
 
@@ -107,10 +110,10 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
               onChange={(e) => choose(e.target.value as SortKey)}
               aria-label="Sort library"
               className={[
-                "min-h-11 appearance-none rounded-full border border-edge bg-surface",
-                "pl-4 pr-9 text-xs font-medium text-cream sm:min-h-0 sm:py-1.5 sm:pl-3.5 sm:pr-8",
-                "transition hover:border-anilist/60",
-                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-anilist",
+                "min-h-11 appearance-none rounded-lg border border-border bg-surface",
+                "pl-4 pr-9 text-xs font-medium text-foreground sm:min-h-0 sm:py-1.5 sm:pl-3.5 sm:pr-8",
+                "transition-colors hover:border-accent/60",
+                "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent",
               ].join(" ")}
             >
               {SORTS.map((option) => (
@@ -119,13 +122,11 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
                 </option>
               ))}
             </select>
-            <svg
+            <ChevronDown
               aria-hidden="true"
-              viewBox="0 0 10 6"
-              className="pointer-events-none absolute right-3 top-1/2 h-1.5 w-2.5 -translate-y-1/2 fill-none stroke-current stroke-[1.5]"
-            >
-              <path d="M1 1l4 4 4-4" strokeLinecap="round" />
-            </svg>
+              className="pointer-events-none absolute right-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted"
+              strokeWidth={1.75}
+            />
           </span>
         </label>
       </div>
@@ -163,10 +164,10 @@ export function LibraryGrid({ entries }: { entries: LibraryCard[] }) {
                     {ratio !== null && ratio > 0 ? (
                       <div
                         aria-hidden="true"
-                        className="absolute inset-x-0 bottom-0 h-1 bg-ink/50"
+                        className="absolute inset-x-0 bottom-0 h-1 bg-background/50"
                       >
                         <div
-                          className="h-full bg-anilist"
+                          className="h-full bg-accent"
                           style={{ width: `${ratio * 100}%` }}
                         />
                       </div>

@@ -21,7 +21,7 @@ export const viewport: Viewport = {
   // `cover` lets the layout paint under the notch and home indicator; the
   // header and tab bar add the safe-area insets back themselves.
   viewportFit: "cover",
-  themeColor: "#14101f",
+  themeColor: "#09090b",
   // Zoom stays available — pinching a cover or a release title is legitimate.
   maximumScale: 5,
 };

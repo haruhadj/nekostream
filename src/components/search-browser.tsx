@@ -2,8 +2,12 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import { X } from "lucide-react";
 
 import { AnimeGrid, AnimePoster, AnimeTitle } from "@/components/ui/anime-grid";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Sheet, SheetGrabHandle } from "@/components/ui/sheet";
 import { apiRequest, apiSend } from "@/lib/client/request";
 
@@ -88,19 +92,18 @@ export function SearchBrowser({
       <label htmlFor="anime-search" className="sr-only">
         Search anime
       </label>
-      <input
+      <Input
         id="anime-search"
         type="search"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder="Search anime on AniList"
-        // 16px keeps iOS Safari from zooming the page when the field focuses.
-        className="min-h-12 w-full rounded-full border border-edge bg-surface/60 px-5 text-base placeholder:text-muted focus:border-anilist focus:outline-none"
+        className="min-h-12 text-base"
       />
 
       <p className="mt-3 h-5 text-xs text-muted" aria-live="polite">
         {error ? (
-          <span className="text-cream">{error}</span>
+          <span className="text-foreground">{error}</span>
         ) : isSearching ? (
           "Searching…"
         ) : query.trim() ? (
@@ -124,9 +127,7 @@ export function SearchBrowser({
               >
                 <AnimePoster coverImageUrl={item.coverImage?.large}>
                   {added ? (
-                    <span className="absolute right-2 top-2 rounded-full bg-anilist px-2 py-0.5 text-[10px] font-semibold text-ink">
-                      In library
-                    </span>
+                    <Badge className="absolute right-2 top-2">In library</Badge>
                   ) : null}
                 </AnimePoster>
 
@@ -138,20 +139,15 @@ export function SearchBrowser({
                 </p>
               </button>
 
-              <button
-                type="button"
+              <Button
+                variant={added ? "outline" : "primary"}
+                size="sm"
+                className="mt-2 w-full"
                 onClick={() => addToLibrary(item)}
                 disabled={added || state === "adding"}
-                className={[
-                  "mt-2 min-h-10 w-full rounded-full px-3 text-xs font-semibold transition",
-                  "focus-ring",
-                  added
-                    ? "cursor-default border border-edge text-muted"
-                    : "bg-anilist text-ink hover:brightness-110 active:scale-[0.97] disabled:opacity-60",
-                ].join(" ")}
               >
                 {added ? "In library" : state === "adding" ? "Adding…" : "Add"}
-              </button>
+              </Button>
             </li>
           );
         })}
@@ -170,14 +166,14 @@ export function SearchBrowser({
           label={preview.title.english ?? preview.title.romaji}
           onClose={() => setPreview(null)}
           panelClassName={[
-            "flex w-full max-w-xl flex-col gap-5 overflow-y-auto border border-edge bg-surface",
-            "max-h-[88vh] rounded-t-3xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
-            "sm:max-h-[85vh] sm:flex-row sm:rounded-2xl sm:p-6 sm:pb-6",
+            "flex w-full max-w-xl flex-col gap-5 overflow-y-auto border border-border bg-surface",
+            "max-h-[88vh] rounded-t-xl p-5 pb-[calc(1.25rem+env(safe-area-inset-bottom))]",
+            "sm:max-h-[85vh] sm:flex-row sm:rounded-xl sm:p-6 sm:pb-6",
           ].join(" ")}
         >
           <SheetGrabHandle />
 
-          <div className="mx-auto w-28 shrink-0 overflow-hidden rounded-xl border border-edge bg-ink sm:mx-0 sm:w-40">
+          <div className="mx-auto w-28 shrink-0 overflow-hidden rounded-lg border border-border bg-background sm:mx-0 sm:w-40">
             {preview.coverImage?.large ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
@@ -197,9 +193,9 @@ export function SearchBrowser({
                 type="button"
                 onClick={() => setPreview(null)}
                 aria-label="Close"
-                className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/40 hover:text-cream"
+                className="-mr-2 -mt-2 flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-background/40 hover:text-foreground"
               >
-                ✕
+                <X aria-hidden="true" className="h-4 w-4" strokeWidth={2} />
               </button>
             </div>
             {preview.title.english ? (
@@ -228,27 +224,21 @@ export function SearchBrowser({
               </p>
             ) : null}
 
-            <button
-              type="button"
+            <Button
+              variant={inLibrary.has(preview.id) ? "outline" : "primary"}
+              className="mt-5 w-full sm:w-auto"
               onClick={() => addToLibrary(preview)}
               disabled={
                 inLibrary.has(preview.id) ||
                 (addStates[preview.id] ?? "idle") === "adding"
               }
-              className={[
-                "mt-5 min-h-12 w-full rounded-full px-5 text-sm font-semibold transition sm:min-h-0 sm:w-auto sm:py-2",
-                "focus-ring",
-                inLibrary.has(preview.id)
-                  ? "cursor-default border border-edge text-muted"
-                  : "bg-anilist text-ink hover:brightness-110 disabled:opacity-60",
-              ].join(" ")}
             >
               {inLibrary.has(preview.id)
                 ? "In library"
                 : (addStates[preview.id] ?? "idle") === "adding"
                   ? "Adding…"
                   : "Add to library"}
-            </button>
+            </Button>
           </div>
         </Sheet>
       ) : null}

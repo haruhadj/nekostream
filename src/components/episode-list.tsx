@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { apiSend } from "@/lib/client/request";
 
 import { useProgress } from "@/components/progress-control";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { formatBytes, formatRelative } from "@/lib/format";
 
 export type EpisodeRow = {
@@ -79,25 +80,25 @@ export function EpisodeList({
                 ? `Checked ${formatRelative(lastFetchedAt)}`
                 : "Not checked yet")}
           </p>
-          <button
-            type="button"
+          <Button
+            variant="outline"
+            size="sm"
             onClick={refresh}
             disabled={refreshing || !hasFilter}
-            className="min-h-10 shrink-0 rounded-full border border-edge px-4 text-xs font-medium transition hover:bg-surface active:scale-[0.97] disabled:opacity-50 sm:min-h-0 sm:py-1.5"
           >
             {refreshing ? "Checking…" : "Refresh"}
-          </button>
+          </Button>
         </div>
       </div>
 
       {episodes.length === 0 ? (
-        <p className="mt-5 rounded-xl border border-dashed border-edge px-4 py-8 text-center text-sm text-muted">
+        <p className="mt-5 rounded-xl border border-dashed border-border px-4 py-8 text-center text-sm text-muted">
           {hasFilter
             ? "No releases found for this feed yet."
             : "Save a Nyaa feed to build the episode list."}
         </p>
       ) : (
-        <ul className="mt-4 divide-y divide-edge overflow-hidden rounded-2xl border border-edge">
+        <ul className="mt-4 divide-y divide-border overflow-hidden rounded-xl border border-border">
           {episodes.map((ep) => {
             const watched =
               ep.episodeNumber !== null && ep.episodeNumber <= progress;
@@ -117,8 +118,8 @@ export function EpisodeList({
                     className={[
                       "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-mono text-xs tabular-nums",
                       watched
-                        ? "border-anilist/40 bg-anilist/10 text-anilist"
-                        : "border-edge bg-ink/30 text-cream",
+                        ? "border-accent/40 bg-accent/10 text-accent"
+                        : "border-border bg-background/30 text-foreground",
                     ].join(" ")}
                   >
                     {ep.episodeNumber !== null ? ep.episodeNumber : "—"}
@@ -151,32 +152,27 @@ export function EpisodeList({
 
                 <div className="flex shrink-0 gap-2">
                   {ep.episodeNumber !== null ? (
-                    <button
-                      type="button"
+                    <Button
+                      variant={watched ? "secondary" : "outline"}
+                      size="sm"
                       disabled={saving}
+                      className={watched ? "text-accent" : undefined}
                       // Marking episode N watched means progress is at least N.
                       onClick={() =>
                         setProgress(
                           watched ? ep.episodeNumber! - 1 : ep.episodeNumber!
                         )
                       }
-                      className={[
-                        "min-h-11 flex-1 rounded-full border px-4 text-xs font-medium transition",
-                        "active:scale-[0.97] disabled:opacity-50 sm:min-h-0 sm:flex-none sm:py-1.5",
-                        watched
-                          ? "border-anilist/40 text-anilist"
-                          : "border-edge text-muted hover:bg-surface hover:text-cream",
-                      ].join(" ")}
                     >
                       {watched ? "Watched" : "Mark watched"}
-                    </button>
+                    </Button>
                   ) : null}
 
                   {/* A plain anchor so the OS hands magnets to the user's torrent
                     client, exactly as plan.md asks. */}
                   <a
                     href={ep.magnetUri}
-                    className="flex min-h-11 flex-1 items-center justify-center rounded-full bg-anilist px-5 text-xs font-semibold text-ink transition hover:brightness-110 active:scale-[0.97] sm:min-h-0 sm:flex-none sm:py-1.5"
+                    className={buttonVariants({ size: "sm" })}
                   >
                     Magnet
                   </a>

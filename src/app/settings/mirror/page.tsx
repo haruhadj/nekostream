@@ -22,7 +22,7 @@ export default async function MirrorPage() {
       <main className="pb-tabbar mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-16">
         <Link
           href="/settings"
-          className="-ml-2 inline-flex min-h-10 items-center rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted transition-colors hover:text-cream"
+          className="-ml-2 inline-flex min-h-10 items-center rounded-full px-2 text-[11px] font-semibold uppercase tracking-[0.22em] text-muted transition-colors hover:text-foreground"
         >
           ← Settings
         </Link>
@@ -39,7 +39,7 @@ export default async function MirrorPage() {
           {malLinked ? (
             <MirrorReview />
           ) : (
-            <p className="rounded-xl border border-edge bg-surface/50 px-4 py-3 text-sm text-muted">
+            <p className="rounded-xl border border-border bg-surface/50 px-4 py-3 text-sm text-muted">
               Link MyAnimeList first — there is nothing to compare against until
               then.{" "}
               <Link href="/settings" className="underline underline-offset-2">
