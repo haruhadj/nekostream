@@ -48,7 +48,7 @@ export default async function CalendarPage() {
     <>
       <SiteHeader active="calendar" />
 
-      <main className="pb-tabbar mx-auto w-full max-w-3xl px-4 pt-6 sm:px-6 sm:pt-10">
+      <main className="pb-tabbar mx-auto w-full max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-2xl">
           Schedule
         </h1>
