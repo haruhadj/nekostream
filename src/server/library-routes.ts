@@ -202,24 +202,35 @@ libraryRoutes.get("/:id/filter", async (c) => {
   return c.json({ filter: filter ?? null });
 });
 
-/** Saving a filter replaces any previous one — an entry has exactly one feed. */
+/**
+ * Saving a filter replaces any previous one — an entry has exactly one feed.
+ * Episodes already discovered belong to the old query, so they're cleared
+ * out too; otherwise stale releases (old release group/quality/episode
+ * numbers) would linger alongside whatever the new filter turns up.
+ */
 libraryRoutes.put("/:id/filter", async (c) => {
   const entry = await requireEntry(c);
 
   const data = await parseBody(c, filterSchema, "Invalid filter.");
 
-  const [filter] = await db
-    .insert(rssFilter)
-    .values({
-      id: crypto.randomUUID(),
-      libraryEntryId: entry.id,
-      ...data,
-    })
-    .onConflictDoUpdate({
-      target: rssFilter.libraryEntryId,
-      set: { ...data, updatedAt: new Date() },
-    })
-    .returning();
+  const filter = await db.transaction(async (tx) => {
+    await tx.delete(episode).where(eq(episode.libraryEntryId, entry.id));
+
+    const [filter] = await tx
+      .insert(rssFilter)
+      .values({
+        id: crypto.randomUUID(),
+        libraryEntryId: entry.id,
+        ...data,
+      })
+      .onConflictDoUpdate({
+        target: rssFilter.libraryEntryId,
+        set: { ...data, updatedAt: new Date() },
+      })
+      .returning();
+
+    return filter;
+  });
 
   return c.json({ filter });
 });
