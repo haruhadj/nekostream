@@ -238,12 +238,17 @@ libraryRoutes.put("/:id/filter", async (c) => {
 /**
  * Stops tracking this anime on Nyaa. Deleting the feed is what the poller
  * checks for — see lib/airing/poller.ts — so this alone disarms polling.
- * Episodes already found are left in place; only future fetching stops.
+ * Episodes already found are cleared too, so re-adding a filter later
+ * starts from a clean slate instead of resurrecting old releases.
  */
 libraryRoutes.delete("/:id/filter", async (c) => {
   const entry = await requireEntry(c);
 
-  await db.delete(rssFilter).where(eq(rssFilter.libraryEntryId, entry.id));
+  await db.transaction(async (tx) => {
+    await tx.delete(rssFilter).where(eq(rssFilter.libraryEntryId, entry.id));
+    await tx.delete(episode).where(eq(episode.libraryEntryId, entry.id));
+  });
+
   return c.json({ removed: true });
 });
 
