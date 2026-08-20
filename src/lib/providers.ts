@@ -14,3 +14,12 @@ export const PROVIDER_LABEL: Record<Provider, string> = {
   anilist: "AniList",
   mal: "MyAnimeList",
 };
+
+/** The tracker's own public page for an anime, by that tracker's media id. */
+export function anilistAnimeUrl(mediaId: number): string {
+  return `https://anilist.co/anime/${mediaId}`;
+}
+
+export function malAnimeUrl(mediaId: number): string {
+  return `https://myanimelist.net/anime/${mediaId}`;
+}

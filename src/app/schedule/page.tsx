@@ -2,13 +2,13 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { and, asc, eq, isNotNull } from "drizzle-orm";
 
-import { CalendarList, type CalendarItem } from "@/components/calendar-list";
+import { ScheduleList, type ScheduleItem } from "@/components/schedule-list";
 import { SiteHeader } from "@/components/site-header";
 import { db } from "@/db";
 import { libraryEntry, rssFilter } from "@/db/schema";
 import { auth } from "@/lib/auth";
 
-export default async function CalendarPage() {
+export default async function SchedulePage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
@@ -20,6 +20,8 @@ export default async function CalendarPage() {
       coverImageUrl: libraryEntry.coverImageUrl,
       nextAiringAt: libraryEntry.nextAiringAt,
       nextAiringEpisode: libraryEntry.nextAiringEpisode,
+      progress: libraryEntry.progress,
+      totalEpisodes: libraryEntry.totalEpisodes,
       hasFeed: rssFilter.id,
     })
     .from(libraryEntry)
@@ -34,19 +36,21 @@ export default async function CalendarPage() {
 
   // nextAiringAt/nextAiringEpisode are set together by lib/airing/poller.ts —
   // the isNotNull filter above already guarantees both are present here.
-  const entries: CalendarItem[] = rows.map((row) => ({
+  const entries: ScheduleItem[] = rows.map((row) => ({
     id: row.id,
     titleRomaji: row.titleRomaji,
     titleEnglish: row.titleEnglish,
     coverImageUrl: row.coverImageUrl,
     nextAiringAt: row.nextAiringAt!.toISOString(),
     nextAiringEpisode: row.nextAiringEpisode!,
+    progress: row.progress,
+    totalEpisodes: row.totalEpisodes,
     hasFeed: row.hasFeed !== null,
   }));
 
   return (
     <>
-      <SiteHeader active="calendar" />
+      <SiteHeader active="schedule" />
 
       <main className="pb-tabbar mx-auto w-full max-w-6xl px-4 pt-6 sm:px-6 sm:pt-10">
         <h1 className="text-3xl font-semibold tracking-tight sm:text-2xl">
@@ -65,7 +69,7 @@ export default async function CalendarPage() {
             </p>
           </div>
         ) : (
-          <CalendarList entries={entries} />
+          <ScheduleList entries={entries} />
         )}
       </main>
     </>

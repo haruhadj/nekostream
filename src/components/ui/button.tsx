@@ -10,9 +10,9 @@ const variantClasses: Record<Variant, string> = {
   secondary:
     "border border-border bg-surface text-foreground hover:bg-border/60",
   outline:
-    "border border-border bg-transparent text-foreground hover:bg-surface",
-  ghost: "bg-transparent text-muted hover:bg-surface hover:text-foreground",
-  destructive: "bg-transparent text-rose-400 hover:bg-rose-400/10",
+    "border border-border bg-surface text-foreground hover:bg-border/60",
+  ghost: "bg-surface text-muted hover:bg-border/60 hover:text-foreground",
+  destructive: "bg-rose-400/10 text-rose-400 hover:bg-rose-400/20",
 };
 
 const sizeClasses: Record<Size, string> = {

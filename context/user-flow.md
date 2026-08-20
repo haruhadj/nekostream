@@ -8,12 +8,12 @@
 | `/login` | Sign-in | — | AniList OAuth only; MAL is not offered here (see below). |
 | `/search` | AniList search/browse | required | Add a title to the library. |
 | `/anime/[id]` | One library entry's detail | required, entry scoped to caller | Nyaa filter setup/edit, episode list, progress control, "stop tracking" (delete `rss_filter`). |
-| `/calendar` | Next-episode-per-show, grouped by day | required | See `functionality.md` for what it does and doesn't show. |
+| `/schedule` | Next-episode-per-show, grouped by day | required | See `functionality.md` for what it does and doesn't show. |
 | `/settings` | Notification email + toggle, MAL link/unlink, Stremio token | required | |
 | `/settings/mirror` | AniList/MAL list reconciliation | required | Manual, one-off — not something the poller runs. |
 
 Navigation is `SiteHeader` (`components/site-header.tsx`): a top bar on
-`sm:` and wider, a bottom tab bar (Library/Calendar/Search/Settings) on
+`sm:` and wider, a bottom tab bar (Library/Schedule/Search/Settings) on
 phones — only one is ever visible at once, not a responsive collapse of the
 other. Any new top-level page needs an entry in both.
 
@@ -43,7 +43,7 @@ poller arms polling once AniList reports a broadcast time.
 
 ### Stopping tracking
 `/anime/[id]` → delete the saved Nyaa filter (`nyaa-filter-panel.tsx`) →
-`rss_filter` row removed → entry drops out of the poller and calendar's
+`rss_filter` row removed → entry drops out of the poller and schedule's
 "has a feed" logic, but stays in the library as an ordinary (now untracked)
 entry.
 

@@ -4,7 +4,7 @@ import { CalendarDays, LibraryBig, Search, Settings } from "lucide-react";
 import { Wordmark } from "@/components/ui/wordmark";
 import { cn } from "@/lib/cn";
 
-type Tab = "library" | "calendar" | "search" | "settings";
+type Tab = "library" | "schedule" | "search" | "settings";
 
 /**
  * Two navigations for one set of destinations. Wide screens get the usual top
@@ -24,9 +24,9 @@ export function SiteHeader({ active }: { active?: Tab }) {
           <nav className="hidden items-center gap-5 text-sm sm:flex">
             <NavLink href="/" label="Library" isActive={active === "library"} />
             <NavLink
-              href="/calendar"
+              href="/schedule"
               label="Schedule"
-              isActive={active === "calendar"}
+              isActive={active === "schedule"}
             />
             <NavLink
               href="/search"
@@ -37,7 +37,12 @@ export function SiteHeader({ active }: { active?: Tab }) {
 
           <Link
             href="/settings"
-            className="ml-auto hidden text-sm text-muted transition-colors hover:text-foreground sm:block"
+            className={cn(
+              "ml-auto hidden rounded-lg px-3 py-1.5 text-sm transition-colors sm:block",
+              active === "settings"
+                ? "bg-accent/15 text-foreground"
+                : "bg-surface text-muted hover:bg-border/60 hover:text-foreground"
+            )}
           >
             Settings
           </Link>
@@ -61,11 +66,12 @@ function NavLink({
   return (
     <Link
       href={href}
-      className={
+      className={cn(
+        "rounded-lg px-3 py-1.5 transition-colors",
         isActive
-          ? "text-foreground underline decoration-accent decoration-2 underline-offset-8"
-          : "text-muted transition-colors hover:text-foreground"
-      }
+          ? "bg-accent/15 text-foreground"
+          : "bg-surface text-muted hover:bg-border/60 hover:text-foreground"
+      )}
     >
       {label}
     </Link>
@@ -84,9 +90,9 @@ function TabBar({ active }: { active?: Tab }) {
         </TabLink>
 
         <TabLink
-          href="/calendar"
+          href="/schedule"
           label="Schedule"
-          isActive={active === "calendar"}
+          isActive={active === "schedule"}
         >
           <CalendarDays
             aria-hidden="true"
@@ -137,7 +143,7 @@ function TabLink({
         <span
           className={cn(
             "flex h-7 w-14 items-center justify-center rounded-full transition-colors",
-            isActive ? "bg-accent/15 text-accent" : ""
+            isActive ? "bg-accent/15 text-accent" : "bg-surface"
           )}
         >
           {children}

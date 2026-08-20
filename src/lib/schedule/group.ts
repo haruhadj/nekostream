@@ -1,5 +1,5 @@
 /**
- * Groups upcoming-episode entries into calendar days, in the viewer's local
+ * Groups upcoming-episode entries into schedule days, in the viewer's local
  * time zone.
  *
  * Pure and clock-free, like lib/airing/schedule.ts: `now` is always passed in
@@ -9,9 +9,9 @@
  * re-sorted, so groups come out chronological for free.
  */
 
-export type CalendarEntry = { airingAt: Date };
+export type ScheduleEntry = { airingAt: Date };
 
-export type CalendarGroup<T extends CalendarEntry> = {
+export type ScheduleGroup<T extends ScheduleEntry> = {
   label: string;
   date: Date;
   entries: T[];
@@ -47,13 +47,13 @@ function dayLabel(day: Date, today: Date): string {
     : MONTH_DAY_YEAR.format(day);
 }
 
-export function groupByDay<T extends CalendarEntry>(
+export function groupByDay<T extends ScheduleEntry>(
   entries: T[],
   now: Date
-): CalendarGroup<T>[] {
+): ScheduleGroup<T>[] {
   const today = startOfDay(now);
-  const groups: CalendarGroup<T>[] = [];
-  const byKey = new Map<number, CalendarGroup<T>>();
+  const groups: ScheduleGroup<T>[] = [];
+  const byKey = new Map<number, ScheduleGroup<T>>();
 
   for (const entry of entries) {
     const day = startOfDay(entry.airingAt);

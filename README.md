@@ -129,7 +129,7 @@ npm run dev
 - **Progress** — writes land in the local database first, then push to the
   enabled trackers independently. One tracker failing never blocks the other or
   discards the local write.
-- **Calendar** — `/calendar` lists each library entry's next episode, grouped
+- **Schedule** — `/schedule` lists each library entry's next episode, grouped
   by day, from the broadcast times the poller already syncs from AniList every
   six hours. It shows one upcoming episode per show, not a full multi-week
   schedule — that's all the data model tracks.

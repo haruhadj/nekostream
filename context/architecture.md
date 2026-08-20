@@ -22,7 +22,7 @@ lib/nyaa/        RSS fetch, parsing, title parsing, filtering
 lib/airing/      The poller + its scheduling state machine
 lib/sync/        Progress dual-write, mirror reconciliation, tracker-entry writes, status mapping
 lib/email/       Mailer + the one notification it sends
-lib/calendar/    Grouping next-airing entries by day for /calendar
+lib/schedule/    Grouping next-airing entries by day for /schedule
 lib/library/     Filtering, sorting, refresh (re-running a saved Nyaa search)
 lib/test-support/ Fakes for db and fetch, used only from *.test.ts
 ```

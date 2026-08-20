@@ -86,3 +86,37 @@ Two lines per session: what happened, what's next.
   "stop tracking" (DELETE the saved `rss_filter`). Next: this blueprint
   retrofit (`AGENTS.md` + `context/`), so future sessions stop re-deriving
   this architecture from scratch.
+- **2026-08-13 (late night)** — Renamed the calendar route from `/calendar`
+  to `/schedule` to match the nav label (already "Schedule"); the page and
+  URL had lagged the rename. Updated `SiteHeader`'s `Tab` type and links,
+  and doc references in README/functionality/user-flow/architecture. Left
+  `lib/calendar/` and the `calendar-list.tsx`/`CalendarList` component
+  names as-is — only the route path was out of sync, not the internals.
+  Follow-up same night: per an explicit ask to remove all "calendar"
+  naming, went further — `lib/calendar/` → `lib/schedule/`
+  (`CalendarEntry`/`CalendarGroup` → `ScheduleEntry`/`ScheduleGroup`),
+  `calendar-list.tsx` → `schedule-list.tsx` (`CalendarItem`/`CalendarList`
+  → `ScheduleItem`/`ScheduleList`), `CalendarPage` → `SchedulePage`, plus
+  the remaining doc references (functionality/architecture/README/
+  user-flow). Deliberately left: lucide-react's `CalendarDays` icon import
+  (third-party symbol, not app naming) and this file's dated historical
+  log entries above (accurate record of what the feature was called at
+  the time). typecheck/lint/test all green after the rename.
+- **2026-08-21** — Added AniList/MyAnimeList links to the anime detail page:
+  pill links beside the genres, pointing at each tracker's own page for the
+  show (`anilist.co/anime/:id`, `myanimelist.net/anime/:id`). URL builders
+  live in `lib/providers.ts` next to `PROVIDER_LABEL` — the hostnames are
+  tracker facts, so they belong where the trackers are named once. The MAL
+  link is omitted when `malMediaId` is null (AniList had no MAL mapping).
+  typecheck/lint/test green.
+- **2026-08-21 (later)** — Made the watched-vs-aired gap the schedule card's
+  main signal: a two-layer `EpisodeBar` (accent = watched, amber behind it =
+  aired and unwatched, scaled to `totalEpisodes` or to the aired count when
+  the season length is unknown), an explicit `Ep 5 watched / Ep 7 aired`
+  ledger that collapses to "Caught up" when there's no backlog, an amber card
+  border when behind, and a filled/hollow dot marking aired vs upcoming on the
+  air-time row. `latestAired` is derived as `nextAiringEpisode` once its air
+  time has passed and `nextAiringEpisode - 1` before — the poller only advances
+  the row when AniList announces the following episode, so the row's episode
+  doubles as the latest aired one. Backlog is clamped at 0 since a tracker can
+  sit ahead of AniList's airing data. typecheck/lint/test green.
