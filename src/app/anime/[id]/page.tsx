@@ -75,9 +75,9 @@ export default async function AnimeDetailPage({
     genres = media?.genres ?? [];
     nextAiring = media?.nextAiringEpisode
       ? {
-          episode: media.nextAiringEpisode.episode,
-          airingAt: new Date(media.nextAiringEpisode.airingAt * 1000),
-        }
+        episode: media.nextAiringEpisode.episode,
+        airingAt: new Date(media.nextAiringEpisode.airingAt * 1000),
+      }
       : null;
   } catch (error) {
     if (!(error instanceof AniListError)) throw error;
@@ -143,13 +143,14 @@ export default async function AnimeDetailPage({
                   polling={filter !== undefined}
                 />
               ) : null}
+
+              <TrackerLinks
+                anilistMediaId={entry.anilistMediaId}
+                malMediaId={entry.malMediaId}
+              />
+
             </div>
           </div>
-
-          <TrackerLinks
-            anilistMediaId={entry.anilistMediaId}
-            malMediaId={entry.malMediaId}
-          />
 
           {/* Full width rather than beside the cover: the controls are the reason
             this page gets opened, and the column left of them is ~200px wide on
