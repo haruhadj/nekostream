@@ -120,3 +120,12 @@ Two lines per session: what happened, what's next.
   the row when AniList announces the following episode, so the row's episode
   doubles as the latest aired one. Backlog is clamped at 0 since a tracker can
   sit ahead of AniList's airing data. typecheck/lint/test green.
+- **2026-08-21 (evening)** — Promoted the tracker links from muted 11px pills
+  to real buttons in `components/tracker-links.tsx`: official AniList/MyAnimeList
+  marks (simple-icons path data, CC0, inlined as SVG rather than adding an icon
+  dependency), brand-tinted background and border, built on `buttonVariants()`
+  — the helper that already existed for links styled as actions. MAL's navy
+  (#2E51A2) is unreadable on zinc-950, so its mark uses a lightened #5C7EDB.
+  Moved the row out of the narrow column beside the cover to full width below
+  the header block, so both buttons sit on one line at phone width instead of
+  stacking and pushing the progress card down. typecheck/lint/test green.

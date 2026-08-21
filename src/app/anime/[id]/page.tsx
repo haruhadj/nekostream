@@ -2,7 +2,7 @@ import Link from "next/link";
 import { headers } from "next/headers";
 import { notFound, redirect } from "next/navigation";
 import { and, desc, eq } from "drizzle-orm";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { AiringCountdown } from "@/components/airing-countdown";
 import { TrackerEditors } from "@/components/tracker-editor";
@@ -13,31 +13,13 @@ import {
   ProgressProvider,
 } from "@/components/progress-control";
 import { SiteHeader } from "@/components/site-header";
+import { TrackerLinks } from "@/components/tracker-links";
 import { db } from "@/db";
 import { account, episode, libraryEntry, rssFilter } from "@/db/schema";
 import { AniListError } from "@/lib/anilist/client";
 import { mediaById } from "@/lib/anilist/queries";
 import { auth } from "@/lib/auth";
 import { stripHtml } from "@/lib/format";
-import {
-  anilistAnimeUrl,
-  malAnimeUrl,
-  PROVIDER_LABEL,
-} from "@/lib/providers";
-
-function TrackerLink({ href, label }: { href: string; label: string }) {
-  return (
-    <a
-      href={href}
-      target="_blank"
-      rel="noreferrer"
-      className="inline-flex items-center gap-1 rounded-full border border-border bg-surface/50 px-2.5 py-0.5 text-[11px] text-muted transition-colors hover:border-accent/40 hover:text-foreground"
-    >
-      {label}
-      <ExternalLink aria-hidden="true" className="h-2.5 w-2.5" strokeWidth={2} />
-    </a>
-  );
-}
 
 export default async function AnimeDetailPage({
   params,
@@ -154,19 +136,6 @@ export default async function AnimeDetailPage({
                 </ul>
               ) : null}
 
-              <div className="mt-2.5 flex flex-wrap gap-1.5">
-                <TrackerLink
-                  href={anilistAnimeUrl(entry.anilistMediaId)}
-                  label={PROVIDER_LABEL.anilist}
-                />
-                {entry.malMediaId !== null ? (
-                  <TrackerLink
-                    href={malAnimeUrl(entry.malMediaId)}
-                    label={PROVIDER_LABEL.mal}
-                  />
-                ) : null}
-              </div>
-
               {nextAiring ? (
                 <AiringCountdown
                   episodeNumber={nextAiring.episode}
@@ -176,6 +145,11 @@ export default async function AnimeDetailPage({
               ) : null}
             </div>
           </div>
+
+          <TrackerLinks
+            anilistMediaId={entry.anilistMediaId}
+            malMediaId={entry.malMediaId}
+          />
 
           {/* Full width rather than beside the cover: the controls are the reason
             this page gets opened, and the column left of them is ~200px wide on
