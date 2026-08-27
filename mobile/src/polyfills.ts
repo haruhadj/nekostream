@@ -21,6 +21,8 @@
  * didn't", so nothing reads the reason.
  */
 
+import { RelativeTimeFormatShim } from "./intl-relative-time-format";
+
 type TimeoutCapable = { timeout?: (ms: number) => AbortSignal };
 
 const AbortSignalCtor = AbortSignal as unknown as TimeoutCapable;
@@ -31,6 +33,28 @@ if (typeof AbortSignalCtor.timeout !== "function") {
     setTimeout(() => controller.abort(), ms);
     return controller.signal;
   };
+}
+
+/**
+ * The second runtime gap, and this one was found the expensive way — by the
+ * app crashing on a real device.
+ *
+ * Hermes ships `Intl.Collator` and `Intl.DateTimeFormat` but **not**
+ * `Intl.RelativeTimeFormat`. `@shared/format` constructs one at module scope,
+ * so importing it threw `undefined cannot be used as a constructor`, the route
+ * that imported it evaluated to `undefined`, and expo-router died destructuring
+ * `ErrorBoundary` off the missing module. The visible symptom was "NekoStream
+ * has stopped" when opening any anime — nowhere near the actual cause.
+ *
+ * Shimmed rather than forked, for the same reason as `AbortSignal.timeout`
+ * above: the domain layer stays shared, and the runtime is what gets patched.
+ */
+const IntlObject = Intl as unknown as {
+  RelativeTimeFormat?: unknown;
+};
+
+if (typeof IntlObject.RelativeTimeFormat !== "function") {
+  IntlObject.RelativeTimeFormat = RelativeTimeFormatShim;
 }
 
 export {};
