@@ -327,9 +327,16 @@ upsert never duplicates, a re-run of the same feed adds nothing, a v2
 re-encode *is* a new release, batches store with a null episode number, "stop
 tracking" keeps the episodes it already found, and deleting the anime cascades
 to them. The bundle carries `nyaa.si`, `nyaa:infoHash`, the magnet prefix, the
-tracker list and the quality ranks. **The Verify line above is untouched by
-any of that** — a real feed, a real release and a real magnet hand-off need
-the phone.
+tracker list and the quality ranks.
+
+**Verified on the phone 2026-08-28, except the magnet tap.** On a
+currently-airing show: discovery probed Nyaa live (1080p/720p/540p;
+Erai-raws 32 releases, VARYG 8), preselected the recommended group and
+default quality, saved the feed, and pulled real releases — including two
+different encodes of the same episode, which is the dual-release case the SQL
+check covered. Sizes, seeders and relative times all render. **Tapping Magnet
+is still owed:** it hands a torrent to the operator's own client, so it was
+left to them.
 
 ---
 
