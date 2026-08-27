@@ -119,7 +119,10 @@ export function SearchBrowser({
           const state = addStates[item.id] ?? "idle";
 
           return (
-            <li key={item.id}>
+            // A one-line title, or a missing format/year, would otherwise
+            // leave this card shorter than its neighbours and float its Add
+            // button up out of the row. Stretch the card, push the button down.
+            <li key={item.id} className="flex h-full flex-col">
               <button
                 type="button"
                 onClick={() => setPreview(item)}
@@ -139,15 +142,21 @@ export function SearchBrowser({
                 </p>
               </button>
 
-              <Button
-                variant={added ? "outline" : "primary"}
-                size="sm"
-                className="mt-2 w-full"
-                onClick={() => addToLibrary(item)}
-                disabled={added || state === "adding"}
-              >
-                {added ? "In library" : state === "adding" ? "Adding…" : "Add"}
-              </Button>
+              <div className="mt-auto pt-2">
+                <Button
+                  variant={added ? "outline" : "primary"}
+                  size="sm"
+                  className="w-full"
+                  onClick={() => addToLibrary(item)}
+                  disabled={added || state === "adding"}
+                >
+                  {added
+                    ? "In library"
+                    : state === "adding"
+                      ? "Adding…"
+                      : "Add"}
+                </Button>
+              </div>
             </li>
           );
         })}

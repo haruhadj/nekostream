@@ -129,3 +129,17 @@ Two lines per session: what happened, what's next.
   Moved the row out of the narrow column beside the cover to full width below
   the header block, so both buttons sit on one line at phone width instead of
   stacking and pushing the progress card down. typecheck/lint/test green.
+- **2026-08-23** — Gave the project a real logo. Extracted the cat-and-play
+  mark from the source paste in `public/`, removing the card background by
+  alpha-from-luminance (the strokes keep their blue→purple gradient) into a
+  transparent `public/logo.png`; `src/app/icon.png` and `apple-icon.png` place
+  it on a rounded dark plate via Next's file conventions. `ui/wordmark.tsx`
+  now shows the mark at 24px in place of the accent dot, so it carries into
+  the header and the login eyebrow. The Dockerfile had deliberately skipped
+  `public/` ("the app serves no static assets of its own"), which 404'd
+  `/logo.png` in the container — restored the COPY, and added the source
+  screenshots to `.dockerignore` so they stay out of the image. Also fixed
+  search-result cards drifting out of alignment once results wrap to a second
+  row: a short title or a missing format/year left a card shorter and floated
+  its Add button up, so the `<li>` is now `flex h-full flex-col` with the
+  button pinned by `mt-auto`. typecheck/lint green; Docker rebuilt and healthy.

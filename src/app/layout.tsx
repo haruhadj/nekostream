@@ -15,6 +15,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "NekoStream",
   description: "Self-hosted anime tracking, with episodes from Nyaa.si.",
+  openGraph: {
+    title: "NekoStream",
+    description: "Self-hosted anime tracking, with episodes from Nyaa.si.",
+    images: ["/logo.png"],
+  },
 };
 
 export const viewport: Viewport = {
