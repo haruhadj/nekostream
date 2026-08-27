@@ -11,7 +11,7 @@ import { StyleSheet, Text, View } from "react-native";
 
 import type { AniListMedia } from "@shared/anilist/queries";
 import { theme } from "@/theme";
-import { AnimePoster, AnimeTitle } from "@/ui/anime-grid";
+import { AnimePoster, AnimeTitle, GRID_ITEM_MAX_WIDTH } from "@/ui/anime-grid";
 import { Badge } from "@/ui/badge";
 import { Button } from "@/ui/button";
 
@@ -58,7 +58,7 @@ export function SearchResultCard({
 }
 
 const styles = StyleSheet.create({
-  card: { flex: 1, maxWidth: "50%" },
+  card: { flex: 1, maxWidth: GRID_ITEM_MAX_WIDTH },
   badge: { position: "absolute", top: 8, right: 8 },
   meta: { marginTop: 2, color: theme.color.muted, fontSize: 11 },
   action: { marginTop: "auto", paddingTop: 8 },

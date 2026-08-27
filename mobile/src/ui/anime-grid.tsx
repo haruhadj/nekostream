@@ -13,13 +13,46 @@
 
 import { Image } from "expo-image";
 import type { ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Dimensions, StyleSheet, Text, View } from "react-native";
 
 import { theme } from "@/theme";
 
-/** Two columns at phone width — a 2:3 poster three-up is too small to read. */
-export const GRID_COLUMNS = 2;
 export const GRID_GAP = 12;
+
+/** The horizontal gutter both grids sit inside — SCREEN_PADDING, doubled. */
+const GUTTER = 32;
+
+/**
+ * How wide a poster wants to be, in dp. Everything else follows from it.
+ *
+ * A fixed two columns was too big to read as a grid: on a 360dp phone that
+ * is a 158dp poster — half the screen wide — so scanning an 854-title
+ * library means scrolling past two covers at a time. Around 100dp reads as a
+ * shelf rather than a slideshow, and is roughly what Mihon shows.
+ */
+const TARGET_POSTER_WIDTH = 100;
+
+/**
+ * Derived once, not per render: the app is portrait-locked (app.json), so the
+ * window width does not change under it. Reading it from a hook would mean
+ * changing `numColumns` at runtime, which remounts the whole FlatList.
+ *
+ * The clamp mirrors the web's breakpoints — two columns at the narrowest,
+ * five at tablet width (`grid-cols-2 sm:grid-cols-3 lg:grid-cols-5`).
+ */
+export const GRID_COLUMNS = Math.min(
+  5,
+  Math.max(
+    2,
+    Math.floor(
+      (Dimensions.get("window").width - GUTTER + GRID_GAP) /
+        (TARGET_POSTER_WIDTH + GRID_GAP)
+    )
+  )
+);
+
+/** What one card may occupy, so a half-filled final row keeps column width. */
+export const GRID_ITEM_MAX_WIDTH = `${100 / GRID_COLUMNS}%` as const;
 
 export function AnimePoster({
   coverImageUrl,
@@ -72,11 +105,13 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.surface,
   },
   title: {
-    marginTop: 8,
+    marginTop: 6,
     color: theme.color.foreground,
-    fontSize: 13,
+    // Scales with the column count: at three-up, a 13pt title wraps to two
+    // lines on almost every show and the rows go ragged.
+    fontSize: GRID_COLUMNS > 2 ? 11 : 13,
     fontWeight: "600",
-    lineHeight: 18,
+    lineHeight: GRID_COLUMNS > 2 ? 15 : 18,
   },
   // React Native has no gradients without a native dependency; a flat wash
   // over the bottom third does the same job for a one-line badge.

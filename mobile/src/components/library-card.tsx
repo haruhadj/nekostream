@@ -10,7 +10,7 @@ import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AiringBadge } from "@/components/airing-badge";
 import type { LibraryEntryRow } from "@/db/library";
-import { AnimePoster, AnimeTitle, PosterScrim } from "@/ui/anime-grid";
+import { AnimePoster, AnimeTitle, GRID_ITEM_MAX_WIDTH, PosterScrim } from "@/ui/anime-grid";
 import { theme } from "@/theme";
 
 export function LibraryCard({
@@ -69,7 +69,7 @@ export function LibraryCard({
 const styles = StyleSheet.create({
   // maxWidth keeps a lone card in a half-filled final row at column width
   // instead of letting flex stretch it across the whole list.
-  card: { flex: 1, maxWidth: "50%" },
+  card: { flex: 1, maxWidth: GRID_ITEM_MAX_WIDTH },
   pressed: { opacity: 0.75 },
   progressTrack: {
     position: "absolute",
