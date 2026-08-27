@@ -19,5 +19,4 @@ docker-compose.yml
 *.db-shm
 
 # Source screenshots/pastes — not app assets, keep them out of the image
-public/Pasted*
 public/Snipaste*
