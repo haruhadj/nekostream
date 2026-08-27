@@ -26,14 +26,17 @@ mobile/src/
   app/            expo-router file tree. app/_layout.tsx is the auth gate;
                   app/(tabs)/ is the four-destination tab bar that matches
                   the web's SiteHeader (Library, Schedule, Search, Settings)
-  api/            client.ts (the ApiResult fetch wrapper), types.ts (wire
-                  shapes + their Date-parsing mappers), use-resource.ts —
-                  all three are replaced by local queries + direct AniList
-                  calls as STANDALONE.md's Phase 3 lands
-  auth/           today: server URL storage, the @better-auth/expo client,
-                  the AuthProvider that owns the gate's status. Becoming:
-                  on-device AniList/MAL OAuth with tokens in SecureStore
-                  and no server session at all
+  api/            on its way out — nothing sets a base URL since Phase 2
+                  removed the server URL, so apiRequest reports that plainly
+                  until Phase 3 replaces the three data tabs' calls with
+                  local queries + direct AniList requests
+  auth/           on-device OAuth: config.ts (client ids + redirect URIs),
+                  url.ts (encoding, expo-free so it can be run off-device),
+                  oauth.ts (the browser round trip), anilist.ts (implicit
+                  grant), mal.ts (PKCE plain + refresh), token-store.ts
+                  (SecureStore), context.tsx (the gate's status)
+  polyfills.ts    imported first: AbortSignal.timeout, which every shared
+                  client calls and React Native does not ship
   db/             the device's own database: schema.ts (a port of
                   src/db/schema.ts minus userId and the auth tables),
                   client.ts (expo-sqlite + drizzle), migrations-gate.tsx
@@ -156,6 +159,15 @@ greater. A module is shareable only if it imports no `db`, no `env` and
 nothing from `app/`/`server/`; anything db-bound (`lib/tokens.ts`,
 `lib/anilist/import.ts`, `lib/library/refresh.ts`'s wiring) gets a device
 equivalent rather than an import.
+
+**"Imports nothing" is necessary but not sufficient.** A module can be
+dependency-free and still not run under Hermes, because React Native's
+globals are not the server's: `AbortSignal.timeout` — called by
+`lib/anilist/client.ts`, `lib/mal/client.ts` and `lib/nyaa/rss.ts`, i.e. every
+external client the standalone app depends on — simply does not exist there.
+The fix is `mobile/src/polyfills.ts`, imported first in `_layout.tsx`, not a
+forked copy of those modules: where the runtimes differ, the runtime is what
+gets patched, so the domain layer stays shared.
 
 The two clients are no longer the same kind of thing. The web app talks to
 this server; the standalone mobile app talks to AniList, MyAnimeList and

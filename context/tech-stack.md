@@ -38,11 +38,11 @@ are the authority over anything remembered.
 | expo | ~57.0.17 | The managed workflow. Distribution is an **EAS dev build**, not Expo Go — `expo-secure-store` and the custom `nekostream://` scheme both need a real native binary. |
 | expo-router | ~57.0.17 | File-based routing whose tree maps 1:1 onto the web app's route table. Note two SDK 57 shifts: routes live in `src/app/`, and `Tabs` must be imported from `expo-router/js-tabs` — the re-export from `expo-router` itself is deprecated, and `expo-router/unstable-native-tabs` (what the template scaffolds) is not something to build on. |
 | react-native / react | 0.86.3 / 19.2.3 | Whatever the SDK pins; do not float these independently of `expo`. |
-| better-auth + @better-auth/expo | ^1.6.25 | One session model shared with the web app rather than a second bearer/JWT one. `@better-auth/core` is pinned to `1.6.25` through `overrides` — see the progress tracker's decision log for the version skew that forced it. |
-| expo-secure-store | ~57.0.2 | Where `@better-auth/expo` keeps the session cookie. |
-| @react-native-async-storage/async-storage | 2.2.0 | Non-secret per-device preferences: the operator's server URL, the library sort order. Not for anything the session depends on — that's SecureStore's job. |
+| expo-secure-store | ~57.0.2 | The AniList and MAL tokens — this device's replacement for the server's `account` table. One key per field, since SecureStore warns above 2048 bytes per value and MAL's token pair could cross it. |
+| expo-crypto | ~57.0.2 | Randomness for the PKCE `code_verifier` and the OAuth `state`. Not `Math.random()`: both values are security parameters. |
+| @react-native-async-storage/async-storage | 2.2.0 | Non-secret per-device state: the library sort order, the tracker display names. Nothing a token depends on — that's SecureStore's job. |
 | expo-image | ~57.0.3 | Cover art. `cachePolicy="disk"` matters: covers are immutable per media id, so scrolling the library twice shouldn't re-hit AniList's CDN. |
-| expo-web-browser / expo-linking | ~57.0.2 / ~57.0.8 | The OAuth consent round trip and the deep link back into the app scheme. |
+| expo-web-browser / expo-linking | ~57.0.2 / ~57.0.8 | The OAuth consent round trip and the deep link back into the app scheme. `openAuthSessionAsync` drives both trackers directly — see the note on `expo-auth-session` below. |
 | @expo/vector-icons | ^15.0.2 | Tab bar glyphs. Font-based, so it adds no native module to the dev build. The `Feather` set is what `lucide-react` (the web's icons) was forked from, so the two clients' tab bars stay recognisably the same. |
 | eslint-config-expo | ^57.0.2 | `mobile/` has its own flat config rather than joining the root's — different globals, different type-aware wiring. See the progress tracker's decision log. |
 | expo-sqlite | ~57.0.2 | The device database. Opened with `enableChangeListener: true` so drizzle's `useLiveQuery` works — see `src/db/client.ts`. Adds a config plugin to `app.json`, so it needs a dev/preview build, not Expo Go. |
@@ -55,15 +55,22 @@ Deliberately **not** here: Tailwind or any styling runtime (plain
 HTTP client — `mobile/src/api/client.ts` is a port of the web's
 `lib/client/request.ts` over plain `fetch`, per the rule below.
 
-**This matrix is what is installed today, and the standalone plan
-(`planning/STANDALONE.md`) keeps changing it.** Landed in Phase 1:
-`expo-sqlite`, `drizzle-orm`, `drizzle-kit`, `babel-plugin-inline-import`.
-Still going: `better-auth` + `@better-auth/expo` (and with them the
-`@better-auth/core` override), once the device does its own AniList/MAL
-OAuth. Still coming: `expo-auth-session` (Phase 2), `expo-background-task`
-and `expo-notifications` (Phase 5). `expo-secure-store` stays but changes
-job — tracker access/refresh tokens instead of a better-auth session cookie.
-Update the matrix as each lands, not before.
+Also deliberately **not** here: **`expo-auth-session`**, which
+`planning/STANDALONE.md` originally named for Phase 2. It was installed,
+its source read, and removed — `AuthRequest`'s constructor asserts
+`codeChallengeMethod !== CodeChallengeMethod.Plain` on the grounds that plain
+"is not secure", and `plain` is the only PKCE method MyAnimeList implements.
+It contributes nothing to AniList's implicit grant either (no token exchange,
+no PKCE), so it would have been a dependency that neither flow used.
+`expo-web-browser` + `expo-crypto` cover both, in `src/auth/oauth.ts`.
+
+**This matrix is what is installed today, and the standalone plan keeps
+changing it.** Landed in Phase 1: `expo-sqlite`, `drizzle-orm`, `drizzle-kit`,
+`babel-plugin-inline-import`. Landed in Phase 2: `expo-crypto` — and
+`better-auth` + `@better-auth/expo` are **gone**, along with the
+`@better-auth/core` override that existed only to reconcile them (bundle:
+4.3 MB → 3.1 MB). Still coming: `expo-background-task` and
+`expo-notifications` (Phase 5). Update the matrix as each lands, not before.
 
 ## Runtime
 

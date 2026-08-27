@@ -8,19 +8,23 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
+import { ANILIST_CONFIG_ERROR } from "@/auth/config";
 import { useAuth } from "@/auth/context";
 import { theme } from "@/theme";
 import { Wordmark } from "@/ui/wordmark";
 
 /**
- * Mirrors the web `/login`: one AniList button. `signIn()` opens the consent
- * page in the system browser via `@better-auth/expo` and resolves once the
- * `nekostream://` deep link returns; the gate then swaps this screen for the
- * app. MyAnimeList is linked later in settings (Phase 5).
+ * Mirrors the web `/login`: one AniList button. `signIn()` opens AniList's
+ * consent page in the system browser and resolves when the `nekostream://`
+ * redirect returns the token; the gate then swaps this screen for the app.
+ * MyAnimeList is optional and linked later from Settings.
+ *
+ * A build with no AniList client id can't get past this screen, so it says so
+ * here rather than letting the browser open on an error page.
  */
 export default function LoginScreen() {
-  const { serverUrl, signIn, changeServer } = useAuth();
-  const [error, setError] = useState<string | null>(null);
+  const { signIn } = useAuth();
+  const [error, setError] = useState<string | null>(ANILIST_CONFIG_ERROR);
   const [busy, setBusy] = useState(false);
 
   async function connect() {
@@ -36,16 +40,16 @@ export default function LoginScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.inner}>
         <Wordmark />
-        <Text style={styles.title}>Your list, your episodes, your server.</Text>
+        <Text style={styles.title}>Your list, your episodes, your phone.</Text>
         <Text style={styles.subtitle}>
           Sign in with AniList to pull in your library. Everything after that
-          stays on your server.
+          stays on this device.
         </Text>
 
         <Pressable
           style={[styles.button, busy && styles.buttonBusy]}
           onPress={connect}
-          disabled={busy}
+          disabled={busy || !!ANILIST_CONFIG_ERROR}
           accessibilityRole="button"
         >
           {busy ? (
@@ -57,14 +61,9 @@ export default function LoginScreen() {
 
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
-        <View style={styles.footer}>
-          <Text style={styles.footerText} numberOfLines={1}>
-            {serverUrl}
-          </Text>
-          <Pressable onPress={changeServer} accessibilityRole="button">
-            <Text style={styles.footerLink}>Change server</Text>
-          </Pressable>
-        </View>
+        <Text style={styles.footerText}>
+          MyAnimeList is optional — link it later in Settings.
+        </Text>
       </View>
     </SafeAreaView>
   );
@@ -96,14 +95,11 @@ const styles = StyleSheet.create({
   },
   buttonBusy: { opacity: 0.7 },
   buttonText: { color: "#04131f", fontSize: 16, fontWeight: "700" },
-  error: { color: theme.color.danger, fontSize: 13 },
-  footer: {
+  error: { color: theme.color.danger, fontSize: 13, lineHeight: 18 },
+  footerText: {
     marginTop: 24,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 12,
+    color: theme.color.muted,
+    fontSize: 12,
+    textAlign: "center",
   },
-  footerText: { color: theme.color.muted, fontSize: 12, flexShrink: 1 },
-  footerLink: { color: theme.color.accent, fontSize: 12, fontWeight: "600" },
 });

@@ -1,7 +1,8 @@
 # Standalone Mobile Client — Implementation Plan
 
-Status: accepted; Phases 0 and 1a–1b done (2026-08-27), 1c conditional on the
-open decision below. Scoped 2026-08-27, superseding Phase 5 of
+Status: accepted; Phases 0, 1a–1b and 2 done (2026-08-27), 1c conditional on
+the open decision below. Phase 2 needs two OAuth app registrations from the
+operator before it can run — see Phase 2's note. Scoped 2026-08-27, superseding Phase 5 of
 `planning/PLAN.md`. MAL's public-client token exchange was verified before
 Phase 0 landed — see finding 2.
 
@@ -203,6 +204,13 @@ server-URL screen and the baked `extra.serverUrl`. All of that goes.
 - **2a.** AniList implicit grant via `expo-auth-session` /
   `WebBrowser.openAuthSessionAsync`, redirect `nekostream://auth/anilist`,
   token to SecureStore.
+
+> **Done 2026-08-27, and `expo-auth-session` is not part of it.** The library
+> was installed, its source read, and removed: `AuthRequest`'s constructor
+> asserts `codeChallengeMethod !== CodeChallengeMethod.Plain` ("not secure"),
+> and `plain` is the only method MAL implements. Since it also contributes
+> nothing to an implicit grant — no exchange, no PKCE — it would have been a
+> dependency neither flow used. `expo-web-browser` + `expo-crypto` instead.
 - **2b.** MAL PKCE (`plain`, per MAL's own limitation), fresh verifier per
   attempt, refresh-token handling with expiry tracked on device. Token
   requests use body-credentials auth with `client_id` and no secret, per the
@@ -213,6 +221,27 @@ server-URL screen and the baked `extra.serverUrl`. All of that goes.
 **Verify:** on device — sign in, force-quit, session persists; revoke the app
 on AniList's side and confirm the failure is legible rather than a silent
 empty library.
+
+**Done 2026-08-27, unverified on hardware and blocked on registration.** The
+code is in and the bundle carries both flows; what is missing is two things
+only the operator can do:
+
+1. **Register the two OAuth apps** and put their ids in `app.json`'s
+   `extra.anilistClientId` / `extra.malClientId` (both are empty strings
+   today, and the login screen says so rather than opening a broken browser).
+   Redirect URIs, exactly: `nekostream://auth/anilist` and
+   `nekostream://auth/mal`. **MAL's app must be App Type `other`** — `web`
+   issues a secret and the public-client flow stops working.
+2. **The device run.** One thing here genuinely cannot be checked off-device:
+   AniList's implicit grant returns the token in the URL *fragment*, and
+   whether Android delivers a fragment intact through
+   `openAuthSessionAsync` is a platform behaviour, not a code path. If it
+   arrives empty, AniList offers no fallback that avoids a client secret —
+   that would be the point to reconsider.
+
+Also worth knowing: **a new dependency, `expo-crypto`,** for the PKCE verifier
+and `state`, and one carried-over risk retired — see the `AbortSignal`
+polyfill note under Risks.
 
 ---
 
@@ -273,7 +302,8 @@ rather than asserting it works.
 | Background updates are unreliable on this device | Known and accepted. Measure it in Phase 5; a manual pull-to-refresh always works. Do not promise timeliness the platform can't give. |
 | The device becomes the only copy of filters/episodes | An export/import in Settings, or keep the server (see the open decision). |
 | Two clients' Nyaa filters diverge | Inherent to keeping both. Document it; don't build sync for it. |
-| `Intl` under Hermes still unverified | Carried over from `planning/PLAN.md` and now overdue — Library and Schedule both depend on it. |
+| `Intl` under Hermes still unverified | Carried over from `planning/PLAN.md` and now overdue — Library and Schedule both depend on it. **The same class of bug already bit once and was caught in Phase 2:** React Native has no `AbortSignal.timeout`, which *all three* shared clients (`anilist/client`, `mal/client`, `nyaa/rss`) call. Fixed with a shim in `mobile/src/polyfills.ts` rather than a fork, because the point is to share the domain layer. Treat "it imports nothing" as necessary but not sufficient for portability — the runtime has to be checked too. |
+| AniList's implicit grant returns the token in a URL *fragment* | Whether Android hands the fragment back through `openAuthSessionAsync` is a platform behaviour, not a code path — it can only be checked on hardware. If it arrives empty there is no secret-free fallback (AniList's code grant needs a client secret and it supports no PKCE), so this would force a rethink. First thing to watch on the device run. |
 | Sunk work in `mobile/src/api/` | Real but small: the screens, `ui/` and `components/` all survive. |
 
 ## Explicitly out of scope

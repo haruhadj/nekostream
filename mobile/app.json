@@ -46,7 +46,8 @@
       "eas": {
         "projectId": "cfc255ef-ddc3-484d-9fb2-256482d455d6"
       },
-      "serverUrl": "https://nyaa.haruhadj.org"
+      "anilistClientId": "",
+      "malClientId": ""
     },
     "owner": "haruhadjs-team"
   }

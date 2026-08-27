@@ -1,13 +1,23 @@
 /**
- * One provider for the whole app-entry gate: server URL first, then session.
- * `_layout.tsx` reads `status` off this and renders the matching branch of
- * the `Stack.Protected` tree.
+ * The app-entry gate, now that there is no server to gate on.
  *
- * Session state is managed imperatively (getSession / signIn / signOut on the
- * lazily-built client) rather than via the client's `useSession` hook,
- * because the client does not exist until a server URL is set and is rebuilt
- * if that URL changes — a hook bound to a specific client instance would be
- * the wrong shape for that lifecycle.
+ * What this replaces: `@better-auth/expo`'s client, the better-auth session
+ * cookie in SecureStore, `server-url.ts`, and the `no-server` branch that went
+ * with them. The app no longer has a session in the web sense — it has tokens
+ * for one or two trackers, and AniList's is the one that decides whether there
+ * is anything to show.
+ *
+ * `loading | no-tracker | ready` is the whole state space:
+ *  - `no-tracker` — no usable AniList token -> login.tsx
+ *  - `ready`      — signed in -> the app
+ *
+ * MyAnimeList is deliberately not part of that decision. It is optional and
+ * linkable later from Settings, exactly as on the web: one tracker failing
+ * never blocks the other, and that rule starts here, at sign-in.
+ *
+ * State is held imperatively rather than in a hook bound to a client object,
+ * because a token in SecureStore has no subscription to hook into — the app
+ * reads it at launch and after each flow.
  */
 
 import {
@@ -20,50 +30,54 @@ import {
   type PropsWithChildren,
 } from "react";
 
-import { getAuthClient } from "./client";
-import {
-  clearServerUrl,
-  getDefaultServerUrl,
-  getServerUrl,
-  loadServerUrl,
-  validateAndSaveServerUrl,
-} from "./server-url";
+import { getAniListToken, signInWithAniList, signOutOfAniList } from "./anilist";
+import { getValidMalToken, linkMyAnimeList, unlinkMyAnimeList } from "./mal";
+import { readProfile, type TrackerProfile } from "./token-store";
 
-type AuthClient = ReturnType<typeof getAuthClient>;
-type Session = NonNullable<
-  Awaited<ReturnType<AuthClient["getSession"]>>["data"]
->;
-
-/**
- * - `loading`  — reading stored state at startup
- * - `no-server`  — no server URL, or the user asked to change it
- *                  -> server-url.tsx
- * - `no-session` — server known, not signed in -> login.tsx
- * - `ready`  — signed in -> the app
- *
- * On a build with `extra.serverUrl` baked in, `no-server` is only ever reached
- * deliberately, via `changeServer()` — first launch goes straight to login.
- */
-export type AuthStatus = "loading" | "no-server" | "no-session" | "ready";
+export type AuthStatus = "loading" | "no-tracker" | "ready";
 
 type AuthValue = {
   status: AuthStatus;
-  serverUrl: string | null;
-  session: Session | null;
-  /** Validate + persist a server URL. Returns an error string on failure. */
-  setServer: (raw: string) => Promise<string | null>;
-  /** Open the AniList consent flow in the system browser. */
+  /** Who AniList says you are. Null until signed in. */
+  anilist: TrackerProfile | null;
+  /** Who MAL says you are, when linked. Null is the normal, working state. */
+  mal: TrackerProfile | null;
+  /** Opens AniList consent. Returns an error string, or null on success. */
   signIn: () => Promise<string | null>;
+  /** Opens MAL consent. Returns an error string, or null on success. */
+  linkMal: () => Promise<string | null>;
+  unlinkMal: () => Promise<void>;
+  /** Clears AniList *and* MAL. The device keeps its library either way. */
   signOut: () => Promise<void>;
-  /** Drop any override and open the server screen to enter a new one. */
-  changeServer: () => Promise<void>;
-  /** Back out of `changeServer()` without entering anything. */
-  cancelServerChange: () => Promise<void>;
-  /** Whether this build has a server to fall back on, so the change is cancellable. */
-  defaultServerUrl: string | null;
 };
 
 const AuthContext = createContext<AuthValue | null>(null);
+
+/**
+ * What launch has to establish, in one place and with no React in it.
+ *
+ * MAL is read through `getValidMalToken()` rather than by asking whether a
+ * profile exists, so an expired link is refreshed — or dropped, if MAL rejects
+ * the refresh token — at launch, instead of failing on the first sync of the
+ * session.
+ */
+async function loadStoredTrackers(): Promise<{
+  anilist: TrackerProfile | null;
+  mal: TrackerProfile | null;
+  signedIn: boolean;
+}> {
+  const [anilistToken, malToken] = await Promise.all([
+    getAniListToken(),
+    getValidMalToken(),
+  ]);
+
+  const [anilist, mal] = await Promise.all([
+    anilistToken ? readProfile("anilist") : null,
+    malToken ? readProfile("mal") : null,
+  ]);
+
+  return { anilist, mal, signedIn: Boolean(anilistToken) };
+}
 
 export function useAuth(): AuthValue {
   const value = use(AuthContext);
@@ -73,113 +87,57 @@ export function useAuth(): AuthValue {
 
 export function AuthProvider({ children }: PropsWithChildren) {
   const [status, setStatus] = useState<AuthStatus>("loading");
-  const [serverUrl, setServerUrlState] = useState<string | null>(null);
-  const [session, setSession] = useState<Session | null>(null);
-
-  // Tracked separately from "there is no server URL", because with a baked-in
-  // default there always is one — the server screen then has to be something
-  // the user asks for rather than something an empty value implies.
-  const [changingServer, setChangingServer] = useState(false);
-
-  /** Re-read the session from the server for the current URL. */
-  const refreshSession = useCallback(async () => {
-    if (!getServerUrl()) {
-      setSession(null);
-      setStatus("no-server");
-      return;
-    }
-    const { data } = await getAuthClient().getSession();
-    setSession(data ?? null);
-    setStatus(data ? "ready" : "no-session");
-  }, []);
+  const [anilist, setAnilist] = useState<TrackerProfile | null>(null);
+  const [mal, setMal] = useState<TrackerProfile | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    (async () => {
-      const url = await loadServerUrl();
+    void (async () => {
+      const stored = await loadStoredTrackers();
       if (cancelled) return;
-      setServerUrlState(url);
-      if (!url) {
-        setStatus("no-server");
-        return;
-      }
-      await refreshSession();
+      setAnilist(stored.anilist);
+      setMal(stored.mal);
+      setStatus(stored.signedIn ? "ready" : "no-tracker");
     })();
     return () => {
       cancelled = true;
     };
-  }, [refreshSession]);
-
-  const setServer = useCallback(
-    async (raw: string): Promise<string | null> => {
-      const result = await validateAndSaveServerUrl(raw);
-      if (!result.ok) return result.error;
-      setServerUrlState(result.url);
-      setChangingServer(false);
-      await refreshSession();
-      return null;
-    },
-    [refreshSession]
-  );
+  }, []);
 
   const signIn = useCallback(async (): Promise<string | null> => {
-    try {
-      const { error } = await getAuthClient().signIn.oauth2({
-        providerId: "anilist",
-        callbackURL: "/",
-      });
-      if (error) return error.message ?? "Sign-in failed.";
-    } catch {
-      return "Sign-in was cancelled or could not complete.";
+    const result = await signInWithAniList();
+    if (!result.ok) {
+      // A dismissed browser is the user's decision, not a failure to report.
+      return result.cancelled ? null : result.error;
     }
-    await refreshSession();
+    setAnilist(result.profile);
+    setStatus("ready");
     return null;
-  }, [refreshSession]);
+  }, []);
+
+  const linkMal = useCallback(async (): Promise<string | null> => {
+    const result = await linkMyAnimeList();
+    if (!result.ok) return result.cancelled ? null : result.error;
+    setMal(result.profile);
+    return null;
+  }, []);
+
+  const unlinkMal = useCallback(async () => {
+    await unlinkMyAnimeList();
+    setMal(null);
+  }, []);
 
   const signOut = useCallback(async () => {
-    await getAuthClient().signOut();
-    setSession(null);
-    setStatus("no-session");
+    await signOutOfAniList();
+    await unlinkMyAnimeList();
+    setAnilist(null);
+    setMal(null);
+    setStatus("no-tracker");
   }, []);
-
-  const changeServer = useCallback(async () => {
-    await clearServerUrl();
-    setServerUrlState(getServerUrl());
-    setSession(null);
-    setChangingServer(true);
-    setStatus("no-server");
-  }, []);
-
-  const cancelServerChange = useCallback(async () => {
-    setChangingServer(false);
-    await refreshSession();
-  }, [refreshSession]);
 
   const value = useMemo<AuthValue>(
-    () => ({
-      // A requested server change outranks whatever the session says, so the
-      // screen stays put until it is either submitted or cancelled.
-      status: changingServer && status !== "loading" ? "no-server" : status,
-      serverUrl,
-      session,
-      setServer,
-      signIn,
-      signOut,
-      changeServer,
-      cancelServerChange,
-      defaultServerUrl: getDefaultServerUrl(),
-    }),
-    [
-      status,
-      changingServer,
-      serverUrl,
-      session,
-      setServer,
-      signIn,
-      signOut,
-      changeServer,
-      cancelServerChange,
-    ]
+    () => ({ status, anilist, mal, signIn, linkMal, unlinkMal, signOut }),
+    [status, anilist, mal, signIn, linkMal, unlinkMal, signOut]
   );
 
   return <AuthContext value={value}>{children}</AuthContext>;

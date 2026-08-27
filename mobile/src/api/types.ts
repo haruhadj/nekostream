@@ -15,7 +15,11 @@
  * (`@shared/library/sort`, `@shared/schedule/group`) take.
  */
 
-/** GET /api/health — used by the server-url screen to validate a host. */
+/**
+ * GET /api/health — validated the host the server-url screen was pointed at.
+ * That screen is gone with Phase 2; the type outlives it only until the last
+ * `/api/*` caller does.
+ */
 export type HealthResponse = {
   ok: true;
   service: "nekostream";

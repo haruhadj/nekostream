@@ -1,16 +1,14 @@
 /**
  * Ported from src/lib/client/request.ts verbatim — the `ApiResult<T>`
- * discriminated union that never throws is exactly right here too, and its
- * "unreachable" branch matters far more on a phone than in a browser.
+ * discriminated union that never throws is exactly right here too.
  *
- * Two additions over the web version, both because there is no ambient
- * origin or cookie jar on a phone:
- *  - every relative URL is prefixed with the operator's server URL, set via
- *    setBaseUrl() once server-url.tsx (Phase 3) has validated and persisted
- *    it.
- *  - an auth-header hook, wired up in Phase 3 to attach
- *    `Cookie: await authClient.getCookie()` — a no-op until then, so
- *    unauthenticated calls (GET /api/health) already work in Phase 2.
+ * **On its way out.** Nothing sets a base URL any more: the server URL and the
+ * better-auth cookie both went with STANDALONE.md's Phase 2, and Phase 3
+ * replaces the screens' calls with local queries and direct AniList requests.
+ * Until then the three data tabs still call `apiRequest`, so it reports the
+ * situation plainly instead of failing as a mysterious network error.
+ *
+ * When the last caller is gone, so is this file.
  */
 
 export type ApiResult<T> =
@@ -20,9 +18,13 @@ export type ApiResult<T> =
 /** Shown when the request never reached the server at all. */
 const UNREACHABLE = "Could not reach the server.";
 
+/** Shown while a screen still reads from an API this app no longer talks to. */
+const NOT_WIRED =
+  "This screen still reads from the NekoStream server. It moves to the device in the next phase.";
+
 let baseUrl = "";
 
-/** Set once the server URL screen (Phase 3) has validated and stored one. */
+/** No caller left — kept only until the last `apiRequest` caller is gone. */
 export function setBaseUrl(url: string): void {
   baseUrl = url.replace(/\/+$/, "");
 }
@@ -31,7 +33,7 @@ export function getBaseUrl(): string {
   return baseUrl;
 }
 
-/** Replaced in Phase 3 to attach the better-auth session cookie. */
+/** Was the better-auth session cookie; nothing sets it now. */
 let authHeaders: () => Promise<Record<string, string>> = () =>
   Promise.resolve({});
 
@@ -52,6 +54,10 @@ export async function apiRequest<T>(
     ...init
   }: RequestInit & { fallbackError?: string } = {}
 ): Promise<ApiResult<T>> {
+  if (url.startsWith("/") && !baseUrl) {
+    return { ok: false, error: NOT_WIRED, status: 0 };
+  }
+
   let response: Response;
 
   try {

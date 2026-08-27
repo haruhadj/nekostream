@@ -17,11 +17,15 @@ data. A `preview` APK ran on a real Android 16 device.
 supersedes `PLAN.md`'s Phase 5: the app becomes standalone — its own SQLite
 database on the device, its own AniList/MAL OAuth, Nyaa discovery and the
 poll tick running on-device — because the Pi's uptime isn't guaranteed and
-every screen was dead when it was down. Phase 0 (scope/docs) and Phase 1a–1b
-(the device database: schema, drizzle/expo-sqlite wiring, migrations applied
-at launch) are done — 1c, the one-time import of the Pi's data, only happens
-if the server is retired. Phases 2–5 (device auth, AniList direct, Nyaa on
-the device, background updates + local notifications) have not started. Phases
+every screen was dead when it was down. Done: Phase 0 (scope/docs), Phase
+1a–1b (the device database) and Phase 2 (device-side AniList/MAL OAuth —
+better-auth and the server URL are gone from the app entirely). 1c, the
+one-time import of the Pi's data, only happens if the server is retired.
+Phases 3–5 (AniList direct, Nyaa on the device, background updates + local
+notifications) have not started. **Between Phase 2 and Phase 3 the three data
+tabs do not work** — they still call `/api/*` and there is no longer a server
+URL to call; `apiRequest` says exactly that instead of failing as a network
+error. Phases
 0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
 `components/` card survives — `api/*`, the `@better-auth/expo` stack and the
 server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
@@ -85,6 +89,11 @@ with reasoning:
 | MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
 | New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
 | The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
+| `expo-auth-session` dropped from Phase 2; the OAuth flows are `expo-web-browser` + `expo-crypto` directly | The plan named the library. Reading its source before building on it: `AuthRequest`'s constructor asserts `codeChallengeMethod !== CodeChallengeMethod.Plain` because plain "is not secure" — and `plain` is the *only* PKCE method MyAnimeList implements. It also adds nothing to AniList's implicit grant (no exchange, no PKCE). Keeping it would have meant working around an invariant for one tracker and not using it for the other. | Aug 27, 2026 |
+| `AbortSignal.timeout` is polyfilled in the app rather than the shared clients being forked | React Native installs `abort-controller@3` as its AbortSignal, which predates the static — so `@shared/anilist/client`, `@shared/mal/client` and `@shared/nyaa/rss`, **every** external client the standalone app relies on, would have thrown on their first request, on device only. `mobile/src/polyfills.ts` patches the runtime instead, because sharing the domain layer unforked is the whole premise of the plan. Standing lesson: "imports nothing" does not mean "runs under Hermes". | Aug 27, 2026 |
+| Tracker tokens go to SecureStore with one key per field, not one JSON blob per provider | SecureStore warns above 2048 bytes per value, and MAL's access + refresh pair could cross that together. Split, neither is close. The tokens deliberately do *not* go in the device SQLite database — that is app-private files; SecureStore is the keystore. | Aug 27, 2026 |
+| A rejected MAL refresh clears the stored MAL credentials | MAL has said they are dead; keeping them only makes the next call fail identically, while the Settings screen goes on claiming a link that does not exist. Clearing makes the UI true, and re-linking is one tap. AniList has no equivalent path — it issues no refresh token, so expiry means signing in again. | Aug 27, 2026 |
+| OAuth client ids live in `app.json`'s `extra`, empty by default | Same reasoning as the server URL before them: one operator, one build, nothing to ask at runtime. They are not secrets — AniList's implicit grant and MAL's public-client PKCE are designed to run on a client id alone. An unset id is reported on the login screen rather than opening a browser onto a provider error. | Aug 27, 2026 |
 | Device row ids default to SQLite's own `lower(hex(randomblob(16)))`, not a UUID library or `crypto.randomUUID()` | Hermes' exact web-API surface is the kind of thing this project has already been bitten by assuming (see the `Intl` risk, still unverified). SQLite is guaranteed present — it *is* the database — and an explicitly-supplied id still wins, which is what keeps a straight copy of the server's better-auth-style text ids working if Phase 1c ever runs. | Aug 27, 2026 |
 | `PRAGMA foreign_keys = ON` on the device connection | SQLite disables foreign keys **per connection**, so the schema's `onDelete: "cascade"` is inert without it — deleting a library entry would silently orphan its filter and episodes. On the server that cleanup is the database's job; it stays the database's job here. | Aug 27, 2026 |
 | `library_entry` is unique on `anilistMediaId` alone (`library_entry_media_idx`), replacing the server's `(userId, anilistMediaId)` | With one user per device the media id carries the same meaning: a show appears in the library once. | Aug 27, 2026 |
@@ -94,14 +103,26 @@ with reasoning:
 ## Open items
 
 **Mobile client — carried into `planning/STANDALONE.md`:**
-- **The Pi-deploy blocker below now only matters if the current APK is used
-  before STANDALONE's Phase 2 lands.** Device-side AniList/MAL auth removes
+- **BLOCKED ON THE OPERATOR: two OAuth apps have to be registered before the
+  app can sign in at all.** `app.json` carries `extra.anilistClientId` and
+  `extra.malClientId` as empty strings. Redirect URIs, exactly:
+  `nekostream://auth/anilist` and `nekostream://auth/mal`. **Register MAL's
+  as App Type `other`** — `web` issues a client secret, and the public-client
+  flow this app uses depends on there being none. The login screen reports a
+  missing id rather than opening a browser onto a provider error.
+- **Untested: whether Android hands back AniList's URL fragment.** The
+  implicit grant returns the token after `#`, and whether that survives
+  `openAuthSessionAsync` is platform behaviour no off-device check can
+  settle. If it arrives empty there is no secret-free fallback — AniList's
+  code grant needs a client secret and it supports no PKCE — so this is the
+  first thing to watch on the device run.
+- **The Pi-deploy blocker below is now historical.** Phase 2 removed
   better-auth, `trustedOrigins` and `MOBILE_APP_SCHEME` from the client's
-  path entirely, so that failure mode disappears with Phase 2 rather than
-  being fixed. Deploying the Pi is still worth doing if the web app is being
-  kept (it is running a build without Phase 1's API additions), but it no
-  longer gates the mobile work. Left in full below because it is the only
-  written record of what was actually observed on hardware.
+  path, so the "Invalid callbackURL" failure cannot recur. Deploying the Pi
+  still matters if the web app is being kept (it runs a build without Phase
+  1's API additions), but it no longer gates any mobile work. Left in full
+  below because it is the only written record of what was observed on
+  hardware.
 - **BLOCKED ON A DEPLOY: the Pi runs a pre-Phase-1 build, so the app cannot
   sign in.** Confirmed on device (Aug 27), not just inferred: a `preview`
   APK on a real Android 16 phone validated `https://nyaa.haruhadj.org`
@@ -138,6 +159,11 @@ with reasoning:
 - Library cards don't open anything — the detail screen and the press handler
   land together, now in `STANDALONE.md`'s Phase 3/4 rather than `PLAN.md`'s
   Phase 5.
+- **The three data tabs are dead until Phase 3.** They call `/api/*`, and the
+  server URL went with Phase 2. `apiRequest` returns "This screen still reads
+  from the NekoStream server" rather than a network error, so the state is
+  legible — but it is a real gap between phases, not a subtlety. `api/`
+  deletes itself when its last caller does.
 - **The device database has never run on a device.** Phase 1's own verify
   line is only half-done: the SQL is proven correct against `node:sqlite` and
   proven present in the Android bundle, but "rows survive a force-quit and a
@@ -153,6 +179,11 @@ with reasoning:
 
 **Verify-during-implementation (not blocking, but worth checking next time
 this area is touched):**
+- `MOBILE_APP_SCHEME` (and the `expo()` plugin in `lib/auth.ts`) exist only
+  for a mobile client that authenticated through the server. Nothing uses
+  them once the standalone app replaces the old APK. Deliberately left in
+  place: removing server config belongs with the retire-or-keep decision, not
+  with a mobile phase. Harmless while it sits there.
 - `README.md`'s "How it works" section still claims scheduled polling
   "is deliberately not implemented yet" — it is implemented
   (`lib/airing/poller.ts`). Fix the README line the next time anyone edits
@@ -441,3 +472,33 @@ Two lines per session: what happened, what's next.
   what a phone has to show. Next: STANDALONE Phase 2 — AniList implicit grant
   and MAL PKCE on-device, replacing `@better-auth/expo` and the server-URL
   screen.
+- **2026-08-27 (STANDALONE Phase 2)** — Device-side auth. `better-auth`,
+  `@better-auth/expo`, the `@better-auth/core` override, `auth/client.ts`,
+  `auth/server-url.ts`, `app/server-url.tsx` and `extra.serverUrl` are all
+  **gone**; the Android bundle drops 4.3 MB → 3.1 MB. New `src/auth/`:
+  `config.ts` (client ids from `app.json`'s `extra`, redirect URIs),
+  `url.ts` (encoding, deliberately expo-free so it can be executed
+  off-device), `oauth.ts` (the browser round trip), `anilist.ts` (implicit
+  grant + the Viewer query the server runs), `mal.ts` (PKCE plain, token
+  exchange, refresh with an in-flight guard), `token-store.ts` (SecureStore
+  per field + AsyncStorage for the non-secret profile). The gate is now
+  `loading | no-tracker | ready` — MAL is optional and linkable from
+  Settings, which was rebuilt around the two tracker accounts. Two findings
+  worth carrying (both in the decision log): **`expo-auth-session` was
+  installed and then removed** after reading its refusal of PKCE `plain`,
+  which is all MAL supports; and **React Native has no
+  `AbortSignal.timeout`**, which every shared external client calls — fixed
+  with `src/polyfills.ts` rather than a fork, and a standing warning that
+  "imports nothing" is not the same as "runs under Hermes". Verified: 9
+  checks of the real `url.ts` executed under Node's type stripping (AniList's
+  fragment, MAL's query, provider errors, `+`/percent decoding, a token with
+  `-`/`_`, round trip, form body carries no `client_secret`); the exported
+  Android bundle carries both authorize/token endpoints,
+  `code_challenge_method` and the polyfill, and no longer contains
+  better-auth. `mobile/` typecheck + lint clean; root typecheck/lint/test
+  (97/97) green. **Blocked on the operator for two things:** registering the
+  AniList and MAL apps (MAL as App Type `other`) and filling in
+  `extra.anilistClientId` / `extra.malClientId`, and the device run — where
+  the open question is whether Android delivers AniList's fragment intact.
+  Next: STANDALONE Phase 3 — AniList directly, rewiring the three data tabs
+  off `api/` onto the device database.
