@@ -11,6 +11,9 @@ src/
   server/         Hono route modules (one per API area) + server/shared.ts
   lib/            Everything else, grouped by concern (see below)
   db/             Drizzle schema + client
+mobile/           A separate Expo/React Native project — a second client
+                  against the same API, own package.json, not part of the
+                  npm-workspaces or Next.js build (see Dependency direction)
 ```
 
 `lib/` subfolders, one per external system or domain concern:
@@ -106,6 +109,12 @@ import from `app/` or `server/`. Within `lib/`, `lib/providers.ts` is
 deliberately dependency-free (no `db` import) because client components
 import it directly for the AniList/MAL label constants — pulling `db` in
 would drag the database into the client bundle.
+
+`mobile/` may import from `src/lib/` (its dependency-free modules only —
+`lib/library/filters.ts`, `lib/library/sort.ts`, `lib/schedule/group.ts`,
+`lib/providers.ts`) but never from `src/app/`, `src/server/`, or `src/db/`.
+It talks to the server only over the same `/api/*` HTTP surface the web app
+uses, never by importing server code or querying the database directly.
 
 ## Testing layout
 

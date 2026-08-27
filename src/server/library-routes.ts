@@ -6,6 +6,7 @@ import { db } from "@/db";
 import { episode, libraryEntry, rssFilter, user } from "@/db/schema";
 import { importAniListLibrary } from "@/lib/anilist/import";
 import { getValidAccessToken } from "@/lib/tokens";
+import { getScheduleEntries } from "@/lib/library/schedule";
 import { refreshEpisodes } from "@/lib/library/refresh";
 import { syncProgress } from "@/lib/sync/progress";
 import { MIRROR_TO_ANILIST } from "@/lib/sync/mirror";
@@ -119,6 +120,17 @@ libraryRoutes.get("/stremio-token", async (c) => {
 libraryRoutes.post("/stremio-token/rotate", async (c) => {
   const token = await rotateStremioToken(c.get("userId"));
   return c.json({ token, url: stremioManifestUrl(token, c.req.url) });
+});
+
+/**
+ * Every library entry with a next episode still ahead — what `/schedule`
+ * renders. Declared with the other literal paths, ahead of the "/:id"
+ * routes — Hono matches in order and would otherwise read "schedule" as an
+ * entry id.
+ */
+libraryRoutes.get("/schedule", async (c) => {
+  const entries = await getScheduleEntries(c.get("userId"));
+  return c.json({ entries });
 });
 
 /**

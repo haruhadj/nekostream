@@ -1,6 +1,7 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { genericOAuth } from "better-auth/plugins";
+import { expo } from "@better-auth/expo";
 
 import { db, schema } from "@/db";
 import { env } from "@/lib/env";
@@ -77,9 +78,11 @@ export const auth = betterAuth({
    * sign-in still always round-trips through baseURL, since a session cookie
    * set on one origin is never sent to the other.
    */
-  trustedOrigins: [env.BETTER_AUTH_URL, env.PUBLIC_URL].filter(
-    (origin): origin is string => Boolean(origin)
-  ),
+  trustedOrigins: [
+    env.BETTER_AUTH_URL,
+    env.PUBLIC_URL,
+    env.MOBILE_APP_SCHEME,
+  ].filter((origin): origin is string => Boolean(origin)),
   database: drizzleAdapter(db, { provider: "sqlite", schema }),
   emailAndPassword: { enabled: false },
   account: {
@@ -129,5 +132,8 @@ export const auth = betterAuth({
         },
       ],
     }),
+    // Lets the mobile client store the session in expo-secure-store and
+    // replay it as a cookie; a no-op for the web app. See planning/PLAN.md.
+    expo(),
   ],
 });

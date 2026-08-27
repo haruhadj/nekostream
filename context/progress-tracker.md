@@ -3,15 +3,14 @@
 The most-updated file in this set. If this looks stale, everything else in
 `context/` should be treated as suspect too.
 
-## Current status (as of 2026-08-08)
+## Current status (as of 2026-08-27)
 
-Past the initial build. There is no formal phase plan in play — development
-proceeds as a series of small, complete features on `main`, each merged and
-deployed on its own (see commit log). This file tracks that ongoing state
-rather than a phase table; add a `planning/PLAN.md` + `PHASE-N.md` set only
-if a genuinely large, multi-session feature gets scoped (e.g. a real
-multi-week calendar, which would need a schema change — see
-`functionality.md`).
+Past the initial build. Day-to-day development still proceeds as a series of
+small, complete features on `main` — but one genuinely large, multi-session
+feature is now in progress: a React Native (Expo) mobile client, scoped in
+`planning/PLAN.md`. Phase 0 (scope/docs) and Phase 1 (the API gaps it needs)
+are done; Phases 2–5 (scaffolding `mobile/` itself, screens, native auth)
+have not started. See `planning/PLAN.md` for the phase breakdown.
 
 All core functionality in `functionality.md`'s "in scope, and shipped"
 table is live in production (Docker on a Raspberry Pi 5, per `README.md`).
@@ -38,6 +37,9 @@ with reasoning:
 | Notification email address is a separate, hand-entered field (`user.notificationEmail`), not the account's OAuth email | AniList and MAL never return a real email — the `email` column holds a synthesized `id@provider.local` placeholder that can't receive mail. | Aug 7, 2026 (`2847`) |
 | Calendar shows one upcoming episode per show, not a multi-week grid | The schema only stores the single next-airing pair per entry; a real calendar grid needs a schema change, deliberately deferred. | Aug 7–8, 2026 |
 | Email notification test regex bug | Test failure traced to a case-sensitive regex; fixed to match case-insensitively. Recorded here because it was a real bug, not a flaky test. | Aug 7, 2026 (`2859`–`2860`) |
+| Mobile auth via `@better-auth/expo`, not a bearer/JWT plugin or a Stremio-style opaque token | Keeps one session model instead of a second one to keep correct; it's the officially supported Expo path and stores the session in `expo-secure-store`. A bearer plugin would duplicate the cookie session for no benefit; an opaque token would need its own issuance UI and would sit outside better-auth's session lifecycle entirely. | Aug 27, 2026 |
+| `mobile/` as its own `package.json` in this repo, not an npm-workspaces restructure | Workspaces would move `src/`, breaking `Dockerfile`, `drizzle.config.ts` and the `@/*` alias for zero gain today. Metro's `watchFolders` + a `tsconfig` path alias share the four pure `lib/` modules without publishing a package. | Aug 27, 2026 |
+| Extended `GET/PATCH /api/settings` with `anilistLinked`/`malLinked`/`anilistSyncedAt` rather than adding a new route | It's already "the user's account-level state"; one call now serves the settings screen, the mirror gate, and the detail-page tracker-editor gate, which each ran their own `listUserAccounts`/`account` query before. | Aug 27, 2026 |
 
 ## Open items
 
@@ -143,3 +145,34 @@ Two lines per session: what happened, what's next.
   row: a short title or a missing format/year left a card shorter and floated
   its Add button up, so the `<li>` is now `flex h-full flex-col` with the
   button pinned by `mt-auto`. typecheck/lint green; Docker rebuilt and healthy.
+- **2026-08-27** — Started the React Native mobile client
+  (`planning/PLAN.md`). A three-agent verification pass confirmed the plan
+  matches the codebase, then executed Phase 0 and Phase 1. Phase 0:
+  `functionality.md` gained an in-scope row for the mobile client and
+  out-of-scope rows for push notifications and offline mutation queueing;
+  `project-overview.md`'s Aniyomi/Mihon alternative no longer implies a
+  phone client is inherently out of scope for this project;
+  `architecture.md` documents `mobile/` and its dependency rule (may import
+  `src/lib/`, never `src/app/`/`src/server/`/`src/db/`). Phase 1: extended
+  `GET`/`PATCH /api/settings` with `anilistLinked`/`malLinked`/
+  `anilistSyncedAt`, backed by a new `linkedProviders()` helper in
+  `server/settings-routes.ts`; added `GET /api/library/schedule` and
+  extracted the query the `/schedule` page already ran into
+  `lib/library/schedule.ts` (`getScheduleEntries`) so the route and the page
+  share it — `schedule-list.tsx`'s `ScheduleItem` type now imports from
+  there instead of defining its own; added `expo()` to `lib/auth.ts`'s
+  plugins and `MOBILE_APP_SCHEME` (optional, `lib/env.ts`) to
+  `trustedOrigins`; added `@better-auth/expo@1.6.25` (pinned to match the
+  installed `better-auth@^1.6.25` peer requirement). New tests:
+  `server/settings-routes.test.ts`, `lib/library/schedule.test.ts` — the
+  latter surfaced a real gap in the shared db-stub mocking pattern (a fresh
+  `stubDb()` per property access resets the query-answer counter, so a
+  handler with more than one sequential query needs the stub instance held
+  across the whole request, not recreated per access) that library-routes
+  and mirror-routes tests never hit since their handlers only ever run one
+  query. typecheck/lint/test all green (97/97). Deliberately not curled
+  against a live dev server this session — `.env.local` here points at the
+  operator's real deployment (real SMTP, real AniList/MAL apps, real DB),
+  and starting `next dev` would arm the real poller. Next: Phase 2 —
+  scaffold `mobile/` (Expo/expo-router project, Metro `watchFolders` onto
+  `../src/lib`, the ported `ApiResult` client).

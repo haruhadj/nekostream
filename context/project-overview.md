@@ -57,8 +57,10 @@ because the audience can set those.
   point of this project is removing that manual loop.
 - **Aniyomi/Mihon (mobile app)** — closest philosophical match (the
   dual-tracker-write model in `lib/sync/progress.ts` is deliberately the
-  same pattern) but it's a phone app, not something that runs unattended on
-  a home server and emails you.
+  same pattern) but it's a full standalone app with its own source/tracking
+  logic, not a thin client to a server that runs unattended and emails you —
+  which is why NekoStream's own mobile client (`mobile/`) is a client
+  against this project's existing API instead of a separate app to adopt.
 - **Sonarr + a tracker's own apps** — Sonarr assumes you want automated
   downloading, which is explicitly out of scope here; NekoStream stays at
   "here's the magnet link."

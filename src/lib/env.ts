@@ -14,6 +14,17 @@ const envSchema = z.object({
   // undefined before the url check rejects it.
   PUBLIC_URL: z.preprocess((v) => v || undefined, z.url().optional()),
 
+  /**
+   * The mobile client's custom URL scheme (e.g. "nekostream://"), added to
+   * better-auth's trustedOrigins so the app's own auth flows and its MAL
+   * "link" deep link are accepted. Optional — unset means no mobile client
+   * is deployed against this server.
+   */
+  MOBILE_APP_SCHEME: z.preprocess(
+    (v) => v || undefined,
+    z.string().min(1).optional()
+  ),
+
   ANILIST_CLIENT_ID: z.string().min(1),
   ANILIST_CLIENT_SECRET: z.string().min(1),
 

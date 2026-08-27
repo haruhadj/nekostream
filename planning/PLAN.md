@@ -1,6 +1,8 @@
 # React Native (Expo) Client — Implementation Plan
 
-Status: proposed, not started. Scoped 2026-08-24.
+Status: in progress. Scoped 2026-08-24. Phase 0 and Phase 1 done
+(2026-08-27) — see `context/progress-tracker.md`'s session log for what
+landed. Phases 2–5 not started.
 
 ## Context
 
@@ -101,7 +103,7 @@ session lifecycle entirely).
 
 ---
 
-## Phase 0 — Scope and docs
+## Phase 0 — Scope and docs ✅ done 2026-08-27
 
 No code. Land this first so the rest is in-scope by the project's own rules.
 
@@ -120,7 +122,7 @@ No code. Land this first so the rest is in-scope by the project's own rules.
 
 ---
 
-## Phase 1 — Close the API gaps
+## Phase 1 — Close the API gaps ✅ done 2026-08-27
 
 Server-only, shippable on its own, and useful to the web app too. Every
 route uses `requireSession`, `handleUpstreamErrors`, `parseBody` /

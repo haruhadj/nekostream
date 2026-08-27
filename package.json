@@ -17,6 +17,7 @@
     "db:migrate": "node scripts/migrate.mjs"
   },
   "dependencies": {
+    "@better-auth/expo": "^1.6.25",
     "@libsql/client": "^0.17.4",
     "better-auth": "^1.6.25",
     "clsx": "^2.1.1",

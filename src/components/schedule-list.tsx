@@ -6,19 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { useNow } from "@/components/airing-countdown";
 import { cn } from "@/lib/cn";
 import { groupByDay } from "@/lib/schedule/group";
-
-export type ScheduleItem = {
-  id: string;
-  titleRomaji: string;
-  titleEnglish: string | null;
-  coverImageUrl: string | null;
-  nextAiringAt: string;
-  nextAiringEpisode: number;
-  /** Whether a Nyaa feed is saved, and so whether anything is actually looking. */
-  hasFeed: boolean;
-  progress: number;
-  totalEpisodes: number | null;
-};
+import type { ScheduleItem } from "@/lib/library/schedule";
 
 const TIME_FORMAT = new Intl.DateTimeFormat([], {
   hour: "numeric",
