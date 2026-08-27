@@ -15,7 +15,13 @@ set -euo pipefail
 
 MOBILE="$(cd "$(dirname "$0")/.." && pwd)"
 export ANDROID_HOME="${ANDROID_HOME:-C:/Users/haruhadj/scoop/apps/android-clt/current}"
-export JAVA_HOME="${JAVA_HOME:-C:/Users/haruhadj/scoop/apps/temurin17-jdk/current}"
+
+# Forced, not defaulted. The shell inherits JAVA_HOME=temurin-lts (JDK 25),
+# and `${JAVA_HOME:-…}` would keep it — which fails deep in the native build:
+#   Execution failed for task ':react-native-worklets:configureCMakeRelWithDebInfo'
+#   > WARNING: A restricted method in java.lang.System has been called
+# AGP for RN 0.86 wants 17. Override with NEKOSTREAM_JDK if that ever changes.
+export JAVA_HOME="${NEKOSTREAM_JDK:-C:/Users/haruhadj/scoop/apps/temurin17-jdk/current}"
 
 KEYSTORE="$MOBILE/credentials/nekostream-release.keystore"
 PASS="${NEKOSTREAM_KEYSTORE_PASS:-nekostream}"
@@ -29,6 +35,16 @@ if [ ! -f "$KEYSTORE" ]; then
 fi
 
 cd "$MOBILE/android"
+
+# Force the JS to be re-bundled.
+#
+# `createBundleReleaseJsAndAssets` reported UP-TO-DATE after a change to
+# mobile/src/, and shipped an APK whose native side was fresh and whose
+# JavaScript was one build old — which looks exactly like "the fix did not
+# work" on the device. Deleting its output is cheaper than diagnosing the
+# task's input tracking, and re-bundling costs seconds.
+rm -rf app/build/generated/assets/react/release
+
 ./gradlew assembleRelease
 
 "$APKSIGNER" sign \
