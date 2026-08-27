@@ -1,6 +1,10 @@
 import { OAuthButton } from "@/components/oauth-button";
 import { Wordmark } from "@/components/ui/wordmark";
 
+// Prerendering this at build time would bake the build-time origin into the
+// Open Graph tags; BETTER_AUTH_URL is only set when the container runs.
+export const dynamic = "force-dynamic";
+
 export default function LoginPage() {
   return (
     <main className="flex min-h-dvh items-center justify-center px-6 py-16 pb-[calc(4rem+env(safe-area-inset-bottom))] pt-[calc(4rem+env(safe-area-inset-top))]">

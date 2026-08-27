@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { env } from "@/lib/env";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -13,6 +15,10 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  // Without this, the Open Graph image below resolves against localhost.
+  // Same precedence as the Stremio addon and the notification email: the
+  // public origin when there is one, the auth origin otherwise.
+  metadataBase: new URL(env.PUBLIC_URL ?? env.BETTER_AUTH_URL),
   title: "NekoStream",
   description: "Self-hosted anime tracking, with episodes from Nyaa.si.",
   openGraph: {
