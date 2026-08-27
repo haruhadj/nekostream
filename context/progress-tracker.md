@@ -3,7 +3,7 @@
 The most-updated file in this set. If this looks stale, everything else in
 `context/` should be treated as suspect too.
 
-## Current status (as of 2026-08-27)
+## Current status (as of 2026-08-28)
 
 Past the initial build. Day-to-day development still proceeds as a series of
 small, complete features on `main` — but one genuinely large, multi-session
@@ -44,14 +44,16 @@ recommendation in `STANDALONE.md` is to keep both until the standalone app's
 background-update reliability is known, since retiring is irreversible in
 practice and deferring costs one idle container.
 
-**What has actually run on hardware is narrow, and worth stating exactly.**
-A `preview` APK reached the login screen on a real Android 16 device and
-failed sign-in at the server (Aug 27). Everything since — Phase 4's screens
-against real data, and now the device database — has been verified by
-typecheck, lint, `expo export` and, where it was possible, by checking the
-exported bundle and running the generated SQL against a real SQLite engine.
-None of it has been observed on a phone. That gap is the single biggest risk
-carried forward — see the open items below.
+**What has run on hardware, stated exactly.** On a real Android 16 device
+(Aug 27–28): sign-in, the 854-title import, the Library and Schedule tabs,
+MAL linking, the detail screen, live Nyaa discovery, and a saved feed pulling
+real releases — plus database survival across both a force-quit and an app
+update. **Not yet done by anyone:** a progress tick (it writes to the
+operator’s real AniList and MAL lists) and a magnet tap (it hands a torrent to
+their own client). Both were deliberately left to the operator rather than
+driven from a session. Everything else has been verified by typecheck, lint,
+`expo export`, bundle greps and SQL run against a real SQLite engine — useful,
+but both device-only bugs this week were invisible to all of it.
 
 All core functionality in `functionality.md`'s "in scope, and shipped"
 table is live in production (Docker on a Raspberry Pi 5, per `README.md`).
@@ -169,7 +171,7 @@ with reasoning:
   isn't enforced there. Phase 4 added plenty of async call sites, so the
   reason to revisit this is now real. Every `void`-prefixed promise in
   `mobile/src/` is deliberate; nothing enforces that it stays that way.
-- **Phase 3's side-by-side is half done.** The import ran on device: 854
+- **Phase 3's side-by-side is still half done.** The import ran on device: 854
   titles, filter counts (Watching 94, Planning 167, Completed 570, Paused 11,
   Dropped 12), sorted correctly. **Still owed: a progress tick** — that it
   lands on AniList *and* MAL, and that the per-tracker outcome line says so.
