@@ -1,0 +1,28 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@/assets/*": [
+        "./assets/*"
+      ],
+      // The four dependency-free lib/ modules shared with the web app —
+      // see ../context/architecture.md's Dependency direction section.
+      // Metro also needs the matching watchFolders entry in
+      // metro.config.js; the alias alone resolves at typecheck time but
+      // not at bundle time.
+      "@shared/*": [
+        "../src/lib/*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ]
+}

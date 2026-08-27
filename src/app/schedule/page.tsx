@@ -1,52 +1,16 @@
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { and, asc, eq, isNotNull } from "drizzle-orm";
 
-import { ScheduleList, type ScheduleItem } from "@/components/schedule-list";
+import { ScheduleList } from "@/components/schedule-list";
 import { SiteHeader } from "@/components/site-header";
-import { db } from "@/db";
-import { libraryEntry, rssFilter } from "@/db/schema";
 import { auth } from "@/lib/auth";
+import { getScheduleEntries } from "@/lib/library/schedule";
 
 export default async function SchedulePage() {
   const session = await auth.api.getSession({ headers: await headers() });
   if (!session) redirect("/login");
 
-  const rows = await db
-    .select({
-      id: libraryEntry.id,
-      titleRomaji: libraryEntry.titleRomaji,
-      titleEnglish: libraryEntry.titleEnglish,
-      coverImageUrl: libraryEntry.coverImageUrl,
-      nextAiringAt: libraryEntry.nextAiringAt,
-      nextAiringEpisode: libraryEntry.nextAiringEpisode,
-      progress: libraryEntry.progress,
-      totalEpisodes: libraryEntry.totalEpisodes,
-      hasFeed: rssFilter.id,
-    })
-    .from(libraryEntry)
-    .leftJoin(rssFilter, eq(rssFilter.libraryEntryId, libraryEntry.id))
-    .where(
-      and(
-        eq(libraryEntry.userId, session.user.id),
-        isNotNull(libraryEntry.nextAiringAt)
-      )
-    )
-    .orderBy(asc(libraryEntry.nextAiringAt));
-
-  // nextAiringAt/nextAiringEpisode are set together by lib/airing/poller.ts —
-  // the isNotNull filter above already guarantees both are present here.
-  const entries: ScheduleItem[] = rows.map((row) => ({
-    id: row.id,
-    titleRomaji: row.titleRomaji,
-    titleEnglish: row.titleEnglish,
-    coverImageUrl: row.coverImageUrl,
-    nextAiringAt: row.nextAiringAt!.toISOString(),
-    nextAiringEpisode: row.nextAiringEpisode!,
-    progress: row.progress,
-    totalEpisodes: row.totalEpisodes,
-    hasFeed: row.hasFeed !== null,
-  }));
+  const entries = await getScheduleEntries(session.user.id);
 
   return (
     <>

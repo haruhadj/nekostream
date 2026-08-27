@@ -5,7 +5,16 @@ import tseslint from "typescript-eslint";
 
 export default tseslint.config(
   {
-    ignores: [".next/**", "node_modules/**", "drizzle/**", "public/**"],
+    // mobile/ is a separate Expo/React Native project with its own
+    // tsconfig, tooling and lint setup (`expo lint`) — a different runtime
+    // (RN, not DOM/Next) that this config's type-aware rules don't target.
+    ignores: [
+      ".next/**",
+      "node_modules/**",
+      "drizzle/**",
+      "public/**",
+      "mobile/**",
+    ],
   },
   js.configs.recommended,
   ...next,
