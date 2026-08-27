@@ -41,3 +41,7 @@ example
 # generated native folders
 /ios
 /android
+
+# Local release signing key. Not a shared secret worth committing — regenerate
+# with scripts/local-release.sh if it is ever lost (costs one uninstall).
+/credentials
