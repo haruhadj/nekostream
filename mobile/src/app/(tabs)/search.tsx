@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { FlatList, StyleSheet, Text, View } from "react-native";
 
-import { apiRequest, apiSend } from "@/api/client";
-import type {
-  AniListMedia,
-  LibraryResponse,
-  SearchResponse,
-} from "@/api/types";
-import { useApiResource } from "@/api/use-resource";
+import { searchMedia, trendingMedia } from "@shared/anilist/queries";
+import type { AniListMedia } from "@shared/anilist/queries";
+
+import { useQuery } from "@/data/use-query";
+import { addEntry, libraryMediaIds } from "@/db/library";
 import {
   SearchResultCard,
   type AddState,
@@ -26,11 +24,14 @@ import {
 const DEBOUNCE_MS = 350;
 
 /**
- * The search tab — the web's `/search` page. An empty query returns AniList's
- * trending list from the server, so this is never a blank screen.
+ * The search tab — the web's `/search` page, now talking to AniList itself
+ * through the shared `@shared/anilist/queries`. An empty query shows AniList's
+ * trending list, so this is never a blank screen. Neither call needs a token:
+ * search and metadata are public, which is why this tab works even when the
+ * AniList token has expired.
  *
- * Adding a title needs no explicit hand-off to the Library tab: that screen
- * re-reads `/api/library` whenever it comes back into focus.
+ * Adding a title writes one row to the device database and needs no hand-off
+ * to the Library tab: that screen re-reads on focus.
  */
 export default function SearchScreen() {
   const [query, setQuery] = useState("");
@@ -41,16 +42,13 @@ export default function SearchScreen() {
   const [justAdded, setJustAdded] = useState<ReadonlySet<number>>(new Set());
 
   // Which AniList ids the library already holds, so results show the right
-  // state. Refetched on focus, which also clears `justAdded`'s job.
-  const { data: library } = useApiResource<LibraryResponse>(
-    "/api/library",
-    "Could not load your library."
+  // state. Re-read on focus, which also clears `justAdded`'s job.
+  const { data: ids } = useQuery(
+    libraryMediaIds,
+    "Could not read your library."
   );
 
-  const libraryIds = useMemo(
-    () => new Set(library?.entries.map((entry) => entry.anilistMediaId) ?? []),
-    [library]
-  );
+  const libraryIds = useMemo(() => new Set(ids ?? []), [ids]);
 
   const isInLibrary = useCallback(
     (id: number) => libraryIds.has(id) || justAdded.has(id),
@@ -73,19 +71,21 @@ export default function SearchScreen() {
       setSearching(true);
 
       void (async () => {
-        const result = await apiRequest<SearchResponse>(
-          `/api/anilist/search?q=${encodeURIComponent(trimmed)}`,
-          { fallbackError: "Search failed." }
-        );
+        try {
+          // Empty query means "show me something" — the same split the web's
+          // /api/anilist/search route made server-side.
+          const page = trimmed
+            ? await searchMedia(trimmed)
+            : await trendingMedia();
 
-        if (id !== requestId.current) return;
-
-        if (result.ok) {
-          setMedia(result.data.media ?? []);
+          if (id !== requestId.current) return;
+          setMedia(page.media);
           setError(null);
-        } else {
-          setError(result.error);
+        } catch (thrown) {
+          if (id !== requestId.current) return;
+          setError(thrown instanceof Error ? thrown.message : "Search failed.");
         }
+
         setSearching(false);
       })();
     }, DEBOUNCE_MS);
@@ -96,24 +96,21 @@ export default function SearchScreen() {
   const add = useCallback(async (item: AniListMedia) => {
     setAddStates((states) => ({ ...states, [item.id]: "adding" }));
 
-    const result = await apiSend(
-      "/api/library",
-      "POST",
-      {
+    try {
+      await addEntry({
         anilistMediaId: item.id,
         malMediaId: item.idMal,
         titleRomaji: item.title.romaji,
         titleEnglish: item.title.english,
         coverImageUrl: item.coverImage?.large ?? null,
         totalEpisodes: item.episodes,
-      },
-      { fallbackError: "Could not add that title." }
-    );
-
-    if (!result.ok) {
+      });
+    } catch (thrown) {
       // Back to idle, not stuck mid-add — the card stays retryable.
       setAddStates((states) => ({ ...states, [item.id]: "idle" }));
-      setError(result.error);
+      setError(
+        thrown instanceof Error ? thrown.message : "Could not add that title."
+      );
       return;
     }
 
@@ -151,7 +148,7 @@ export default function SearchScreen() {
           <View>
             <ScreenTitle
               title="Search"
-              subtitle="Results come from AniList. Adding a title saves it to your server."
+              subtitle="Results come from AniList. Adding a title saves it to this device."
             />
 
             <Input

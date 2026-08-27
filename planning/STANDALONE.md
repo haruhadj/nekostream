@@ -1,8 +1,9 @@
 # Standalone Mobile Client — Implementation Plan
 
-Status: accepted; Phases 0, 1a–1b and 2 done (2026-08-27), 1c conditional on
-the open decision below. Phase 2 needs two OAuth app registrations from the
-operator before it can run — see Phase 2's note. Scoped 2026-08-27, superseding Phase 5 of
+Status: accepted; Phases 0, 1a–1b, 2 and 3 done (2026-08-27), 1c conditional
+on the open decision below. Nothing has run on a device yet, and Phase 2 needs
+two OAuth app registrations from the operator before it can — see Phase 2's
+note. Scoped 2026-08-27, superseding Phase 5 of
 `planning/PLAN.md`. MAL's public-client token exchange was verified before
 Phase 0 landed — see finding 2.
 
@@ -259,6 +260,33 @@ Rewires Phase 4's screens off the API.
 
 **Verify:** side-by-side against AniList's own web UI — same list contents,
 same progress after a tick, MAL updated too.
+
+**Done 2026-08-27, and it grew one screen.** Progress writes need somewhere to
+be invoked from, and this app had no detail screen — library cards had been
+non-pressable since Phase 4 of `PLAN.md` precisely because the screen they
+would open was never built. A ported dual-write rule that nothing can call is
+not a ported rule, so `app/anime/[id].tsx` landed here: poster, metadata from
+AniList, the progress stepper, tracker links, and a stated placeholder where
+Phase 4's episode list and Nyaa filter go.
+
+Two other things worth knowing:
+
+- **`api/` is deleted.** No caller was left. The wire types and their
+  `Date`-parsing mappers went with it — Drizzle already returns real `Date`s,
+  which is exactly what the shared sort and grouping helpers want.
+- **Two server modules had their `@/lib/*` imports re-pointed to relative
+  ones** (`sync/mirror.ts`, `sync/tracker-entry.ts`). `@/` means the *web
+  app's* `src/` on the server and the *mobile app's* `src/` on the device, so
+  an alias import is unshareable by construction. With that one change,
+  `writeAniListEntry` and `writeMalEntry` are shared outright rather than
+  copied — the GraphQL mutation and the MAL PATCH have one definition
+  between both clients. Root tests stayed green (97/97).
+
+The schedule needed one thing the plan did not assign to a phase: broadcast
+times. On the server the poller refreshes those every six hours, and there is
+no always-on process here until Phase 5, so the refresh rides along with the
+library import (same six-hour staleness, best-effort — a failure there must
+not turn a successful import into a reported failure).
 
 ---
 

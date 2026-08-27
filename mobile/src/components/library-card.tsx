@@ -1,15 +1,15 @@
 /**
  * One poster in the library grid, ported from the web's `LibraryGrid` card.
  *
- * Not pressable yet: the detail screen it would open is Phase 5. Making it
- * look tappable before there is anywhere to go would be the worse of the two
- * unfinished states.
+ * Pressable as of Phase 3, when `/anime/[id]` — and with it somewhere to tick
+ * progress — finally exists.
  */
 
-import { StyleSheet, Text, View } from "react-native";
+import { Link } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AiringBadge } from "@/components/airing-badge";
-import type { LibraryEntry } from "@/api/types";
+import type { LibraryEntryRow } from "@/db/library";
 import { AnimePoster, AnimeTitle, PosterScrim } from "@/ui/anime-grid";
 import { theme } from "@/theme";
 
@@ -17,7 +17,7 @@ export function LibraryCard({
   entry,
   now,
 }: {
-  entry: LibraryEntry;
+  entry: LibraryEntryRow;
   /** One clock for the whole grid — see `useNow`. */
   now: number;
 }) {
@@ -29,32 +29,40 @@ export function LibraryCard({
       : null;
 
   return (
-    <View style={styles.card}>
-      <AnimePoster coverImageUrl={entry.coverImageUrl}>
-        <PosterScrim />
+    <Link href={`/anime/${entry.id}`} asChild>
+      <Pressable
+        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+        accessibilityRole="button"
+        accessibilityLabel={entry.titleEnglish ?? entry.titleRomaji}
+      >
+        <AnimePoster coverImageUrl={entry.coverImageUrl}>
+          <PosterScrim />
 
-        {entry.nextAiringAt && entry.nextAiringEpisode ? (
-          <AiringBadge
-            episodeNumber={entry.nextAiringEpisode}
-            airingAt={entry.nextAiringAt}
-            now={now}
-          />
-        ) : null}
+          {entry.nextAiringAt && entry.nextAiringEpisode ? (
+            <AiringBadge
+              episodeNumber={entry.nextAiringEpisode}
+              airingAt={entry.nextAiringAt}
+              now={now}
+            />
+          ) : null}
 
-        {ratio !== null && ratio > 0 ? (
-          <View style={styles.progressTrack}>
-            <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
-          </View>
-        ) : null}
-      </AnimePoster>
+          {ratio !== null && ratio > 0 ? (
+            <View style={styles.progressTrack}>
+              <View
+                style={[styles.progressFill, { width: `${ratio * 100}%` }]}
+              />
+            </View>
+          ) : null}
+        </AnimePoster>
 
-      <AnimeTitle>{entry.titleEnglish ?? entry.titleRomaji}</AnimeTitle>
+        <AnimeTitle>{entry.titleEnglish ?? entry.titleRomaji}</AnimeTitle>
 
-      <Text style={styles.progressLabel}>
-        {entry.progress}
-        {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
-      </Text>
-    </View>
+        <Text style={styles.progressLabel}>
+          {entry.progress}
+          {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
+        </Text>
+      </Pressable>
+    </Link>
   );
 }
 
@@ -62,6 +70,7 @@ const styles = StyleSheet.create({
   // maxWidth keeps a lone card in a half-filled final row at column width
   // instead of letting flex stretch it across the whole list.
   card: { flex: 1, maxWidth: "50%" },
+  pressed: { opacity: 0.75 },
   progressTrack: {
     position: "absolute",
     left: 0,

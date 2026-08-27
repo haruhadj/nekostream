@@ -21,11 +21,10 @@ every screen was dead when it was down. Done: Phase 0 (scope/docs), Phase
 1a–1b (the device database) and Phase 2 (device-side AniList/MAL OAuth —
 better-auth and the server URL are gone from the app entirely). 1c, the
 one-time import of the Pi's data, only happens if the server is retired.
-Phases 3–5 (AniList direct, Nyaa on the device, background updates + local
-notifications) have not started. **Between Phase 2 and Phase 3 the three data
-tabs do not work** — they still call `/api/*` and there is no longer a server
-URL to call; `apiRequest` says exactly that instead of failing as a network
-error. Phases
+Phase 3 (AniList directly — the three data tabs read the device database, the
+detail screen ticks progress to both trackers, `mobile/src/api/` deleted) is
+done too. Phases 4–5 (Nyaa on the device, background updates + local
+notifications) have not started. Phases
 0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
 `components/` card survives — `api/*`, the `@better-auth/expo` stack and the
 server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
@@ -89,6 +88,9 @@ with reasoning:
 | MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
 | New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
 | The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
+| Two server modules re-pointed from `@/lib/*` to relative imports so they can be shared (`sync/mirror.ts`, `sync/tracker-entry.ts`) | `@/` means the web app's `src/` on the server and the mobile app's `src/` on the device, so any shared module importing through it resolves to the wrong place or to nothing. Three import lines changed, no behaviour changed, root tests green — and in exchange `writeAniListEntry`/`writeMalEntry` are shared outright instead of copied, so the GraphQL mutation and the MAL PATCH have one definition for both clients. | Aug 27, 2026 |
+| The anime detail screen was built in Phase 3, earlier than the plan implies | Phase 3's deliverable is progress writes, and this app had nowhere to invoke them: library cards had been non-pressable since `PLAN.md`'s Phase 4 because the screen they would open was never built. A ported dual-write rule that nothing can call is not a ported rule. The screen carries progress, metadata and tracker links only — Phase 4's episode list and Nyaa filter have a stated placeholder rather than a stub. | Aug 27, 2026 |
+| The airing refresh rides along with the library import | The Schedule tab renders `nextAiringAt`, which on the server the poller refreshes every six hours. There is no always-on process on the device until Phase 5, and the plan assigned this to no phase — so the import does it, with the same six-hour staleness and best-effort error handling, since failing to fetch broadcast times must not turn a successful library import into a reported failure. | Aug 27, 2026 |
 | `expo-auth-session` dropped from Phase 2; the OAuth flows are `expo-web-browser` + `expo-crypto` directly | The plan named the library. Reading its source before building on it: `AuthRequest`'s constructor asserts `codeChallengeMethod !== CodeChallengeMethod.Plain` because plain "is not secure" — and `plain` is the *only* PKCE method MyAnimeList implements. It also adds nothing to AniList's implicit grant (no exchange, no PKCE). Keeping it would have meant working around an invariant for one tracker and not using it for the other. | Aug 27, 2026 |
 | `AbortSignal.timeout` is polyfilled in the app rather than the shared clients being forked | React Native installs `abort-controller@3` as its AbortSignal, which predates the static — so `@shared/anilist/client`, `@shared/mal/client` and `@shared/nyaa/rss`, **every** external client the standalone app relies on, would have thrown on their first request, on device only. `mobile/src/polyfills.ts` patches the runtime instead, because sharing the domain layer unforked is the whole premise of the plan. Standing lesson: "imports nothing" does not mean "runs under Hermes". | Aug 27, 2026 |
 | Tracker tokens go to SecureStore with one key per field, not one JSON blob per provider | SecureStore warns above 2048 bytes per value, and MAL's access + refresh pair could cross that together. Split, neither is close. The tokens deliberately do *not* go in the device SQLite database — that is app-private files; SecureStore is the keystore. | Aug 27, 2026 |
@@ -156,14 +158,13 @@ with reasoning:
   isn't enforced there. Phase 4 added plenty of async call sites, so the
   reason to revisit this is now real. Every `void`-prefixed promise in
   `mobile/src/` is deliberate; nothing enforces that it stays that way.
-- Library cards don't open anything — the detail screen and the press handler
-  land together, now in `STANDALONE.md`'s Phase 3/4 rather than `PLAN.md`'s
-  Phase 5.
-- **The three data tabs are dead until Phase 3.** They call `/api/*`, and the
-  server URL went with Phase 2. `apiRequest` returns "This screen still reads
-  from the NekoStream server" rather than a network error, so the state is
-  legible — but it is a real gap between phases, not a subtlety. `api/`
-  deletes itself when its last caller does.
+- **The Phase 3 side-by-side is still owed:** same list contents, same
+  progress after a tick, and MAL actually updated — checked against AniList's
+  own web UI on the same account. That pass needs hardware and a signed-in
+  AniList account, so it is blocked behind the OAuth registrations above.
+- **Nothing renders `episodeCounts()` yet.** It is in `db/library.ts` for
+  Phase 4's episode list; if Phase 4 ends up not wanting it, delete it rather
+  than leaving a query nothing calls.
 - **The device database has never run on a device.** Phase 1's own verify
   line is only half-done: the SQL is proven correct against `node:sqlite` and
   proven present in the Android bundle, but "rows survive a force-quit and a
@@ -502,3 +503,33 @@ Two lines per session: what happened, what's next.
   the open question is whether Android delivers AniList's fragment intact.
   Next: STANDALONE Phase 3 — AniList directly, rewiring the three data tabs
   off `api/` onto the device database.
+- **2026-08-27 (STANDALONE Phase 3)** — AniList directly, and **`mobile/src/api/`
+  is deleted** — no caller left, wire types and `Date`-parsing mappers included
+  (Drizzle returns real `Date`s, which is what the shared sort/grouping
+  helpers want). New: `db/library.ts` (every screen read and write — the port
+  of `library-routes.ts` plus `lib/library/schedule.ts`, minus the `userId`
+  scoping a one-user device cannot need), `sync/import.ts` (the port of
+  `lib/anilist/import.ts` with the server's five-minute throttle moved into
+  AsyncStorage), `sync/progress.ts`, `data/use-query.ts` (the `useApiResource`
+  contract, reading a `load()` instead of an HTTP path — the focus refetch
+  behaviour was right for reasons unrelated to where data came from), and
+  `app/anime/[id].tsx` + `components/progress-control.tsx`. Library cards are
+  pressable at last. Three calls in the decision log: the **re-pointed
+  `@/lib/*` imports** in two server modules, which is what lets the tracker
+  writes be *shared* rather than copied; the **detail screen built here**,
+  because Phase 3's deliverable is progress writes and nothing could invoke
+  them; and the **airing refresh riding along with the import**, since the
+  Schedule tab needs broadcast times the poller used to supply. Verified: 7
+  checks of the import upsert against a real SQLite engine — local progress
+  survives a stale sync (7, not 3), `lastActivityAt` never moves backwards,
+  the saved Nyaa filter and row id survive, newer AniList activity does move
+  forward, never-touched entries stay null rather than 1970, and repeated
+  syncs make no duplicates; that check runs the ON CONFLICT clause by hand, so
+  it proves SQLite's semantics rather than Drizzle's emission. The Android
+  bundle now carries `MediaListCollection`, `SaveMediaListEntry`,
+  `my_list_status` and `id_in`, and the only `/api/` left in it is AniList's
+  own OAuth URL. `mobile/` typecheck + lint clean; root typecheck/lint/test
+  (97/97) green after the shared-module change. **Still unrun on a device, and
+  the side-by-side against AniList's web UI is still outstanding.** Next:
+  STANDALONE Phase 4 — Nyaa on the device: share `lib/nyaa/*`, port
+  `lib/library/refresh.ts`, filter editing, episode list, magnet links.

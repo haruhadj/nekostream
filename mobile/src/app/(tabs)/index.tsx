@@ -9,12 +9,8 @@ import {
   View,
 } from "react-native";
 
-import {
-  parseLibraryEntry,
-  type LibraryEntry,
-  type LibraryResponse,
-} from "@/api/types";
-import { useApiResource } from "@/api/use-resource";
+import { useQuery } from "@/data/use-query";
+import { listEntries, type LibraryEntryRow } from "@/db/library";
 import { FilterChips } from "@/components/filter-chips";
 import { LibraryCard } from "@/components/library-card";
 import { useAniListSync } from "@/hooks/use-anilist-sync";
@@ -42,19 +38,18 @@ import { SORTS, sortEntries } from "@shared/library/sort";
  * row set while sorting has to happen on the client; here everything is
  * client-side already, so a second component would only be prop-drilling.
  *
- * Filters, sorting and the day grouping all come from `@shared/*` — the same
- * modules the web renders from, which is the entire point of the Metro
- * `watchFolders` setup in Phase 2.
+ * Reads the device database directly. There is no parse step any more: Drizzle
+ * hands back real `Date` objects, which is exactly what `@shared/library/sort`
+ * wants — the JSON round trip `api/types.ts` existed to undo is simply gone.
  */
 export default function LibraryScreen() {
   const router = useRouter();
   const now = useNow();
 
-  const { data, loading, error, refreshing, refresh, reload } =
-    useApiResource<LibraryResponse>(
-      "/api/library",
-      "Could not load your library."
-    );
+  const { data, loading, error, refreshing, refresh, reload } = useQuery(
+    listEntries,
+    "Could not read your library."
+  );
 
   const { state: syncState, run: runSync } = useAniListSync();
   const [syncing, setSyncing] = useState(false);
@@ -64,10 +59,7 @@ export default function LibraryScreen() {
   const [activeKey, setActiveKey] = useState(FILTERS[0].key);
   const [query, setQuery] = useState("");
 
-  const entries = useMemo<LibraryEntry[]>(
-    () => data?.entries.map(parseLibraryEntry) ?? [],
-    [data]
-  );
+  const entries = useMemo<LibraryEntryRow[]>(() => data ?? [], [data]);
 
   const active =
     FILTERS.find((filter) => filter.key === activeKey) ?? FILTERS[0];
@@ -93,9 +85,9 @@ export default function LibraryScreen() {
 
   /**
    * Import once per launch, the way the web fires `AniListSync` on every
-   * library visit. Doing it on every tab focus instead would be pointless: the
-   * server throttles to one import per five minutes, and pull-to-refresh is
-   * the deliberate way to ask again.
+   * library visit. Doing it on every tab focus instead would be pointless:
+   * `sync/import.ts` throttles to one import per five minutes, and
+   * pull-to-refresh is the deliberate way to ask again.
    */
   const started = useRef(false);
   useEffect(() => {
@@ -110,7 +102,9 @@ export default function LibraryScreen() {
 
   const onRefresh = useCallback(async () => {
     setSyncing(true);
-    await runSync();
+    // A deliberate pull asks AniList again rather than waiting out the
+    // five-minute throttle — the phone's equivalent of the web's `force=1`.
+    await runSync({ force: true });
     setSyncing(false);
     await refresh();
   }, [runSync, refresh]);

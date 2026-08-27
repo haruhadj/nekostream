@@ -26,10 +26,11 @@ mobile/src/
   app/            expo-router file tree. app/_layout.tsx is the auth gate;
                   app/(tabs)/ is the four-destination tab bar that matches
                   the web's SiteHeader (Library, Schedule, Search, Settings)
-  api/            on its way out — nothing sets a base URL since Phase 2
-                  removed the server URL, so apiRequest reports that plainly
-                  until Phase 3 replaces the three data tabs' calls with
-                  local queries + direct AniList requests
+  data/           use-query.ts — one async read, run on first appearance and
+                  re-run on focus. The replacement for the deleted api/
+  sync/           import.ts (AniList lists -> device rows, plus the airing
+                  refresh), progress.ts (local write first, then both
+                  trackers in parallel)
   auth/           on-device OAuth: config.ts (client ids + redirect URIs),
                   url.ts (encoding, expo-free so it can be run off-device),
                   oauth.ts (the browser round trip), anilist.ts (implicit
@@ -39,7 +40,9 @@ mobile/src/
                   client calls and React Native does not ship
   db/             the device's own database: schema.ts (a port of
                   src/db/schema.ts minus userId and the auth tables),
-                  client.ts (expo-sqlite + drizzle), migrations-gate.tsx
+                  client.ts (expo-sqlite + drizzle), library.ts (every read
+                  and write the screens do — the port of library-routes.ts
+                  and lib/library/schedule.ts), migrations-gate.tsx
                   (applies mobile/drizzle/ at launch, before any screen
                   renders — the phone's docker-entrypoint.sh)
   components/     screen-level pieces (cards, chips, badges)
@@ -159,6 +162,14 @@ greater. A module is shareable only if it imports no `db`, no `env` and
 nothing from `app/`/`server/`; anything db-bound (`lib/tokens.ts`,
 `lib/anilist/import.ts`, `lib/library/refresh.ts`'s wiring) gets a device
 equivalent rather than an import.
+
+**A shared module cannot import through `@/`.** That alias means the web
+app's `src/` on the server and the mobile app's `src/` on the device, so
+`@/lib/anilist/client` resolves to two different places — or to nothing. Any
+`lib/` module meant to be shared uses relative imports instead; `sync/mirror.ts`
+and `sync/tracker-entry.ts` were re-pointed for exactly this reason, which is
+what lets both clients share one definition of the tracker writes. Do not
+"fix" them back to the alias.
 
 **"Imports nothing" is necessary but not sufficient.** A module can be
 dependency-free and still not run under Hermes, because React Native's

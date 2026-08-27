@@ -1,17 +1,17 @@
 /**
- * Pulls the user's AniList lists into the server's library, ported from the
- * web's `AniListSync`.
+ * Pulls the AniList lists into the *device* library, ported from the web's
+ * `AniListSync` and rewired off `POST /api/library/sync`.
  *
- * The library renders from the server's own copy first — this never blocks it,
- * and a failure leaves what is already on screen intact. The server throttles
- * repeat calls to one every five minutes, which is what makes it safe to fire
- * on launch and on every pull-to-refresh without a client-side guard.
+ * The library renders from the device's own copy first — this never blocks it,
+ * and a failure leaves what is already on screen intact. The five-minute
+ * throttle that used to live on the server now lives in `sync/import.ts`,
+ * which is what still makes it safe to fire on launch and on every
+ * pull-to-refresh with no client-side guard.
  */
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
-import { apiSend } from "@/api/client";
-import type { SyncResponse } from "@/api/types";
+import { importAniListLibrary } from "@/sync/import";
 
 export type AniListSyncState =
   | { kind: "idle" }
@@ -22,8 +22,8 @@ export type AniListSyncState =
 export function useAniListSync() {
   const [state, setState] = useState<AniListSyncState>({ kind: "idle" });
 
-  // An AniList import can outlive the screen that started it; resolving into
-  // an unmounted component would warn and set state nothing reads.
+  // An import can outlive the screen that started it; resolving into an
+  // unmounted component would warn and set state nothing reads.
   const alive = useRef(true);
   useEffect(() => {
     alive.current = true;
@@ -33,15 +33,10 @@ export function useAniListSync() {
   }, []);
 
   /** Resolves to true when new titles landed, so the caller knows to reload. */
-  const run = useCallback(async (): Promise<boolean> => {
+  const run = useCallback(async ({ force = false } = {}): Promise<boolean> => {
     setState({ kind: "running" });
 
-    const result = await apiSend<SyncResponse>(
-      "/api/library/sync",
-      "POST",
-      undefined,
-      { fallbackError: "Could not reach AniList." }
-    );
+    const result = await importAniListLibrary({ force });
 
     if (!alive.current) return false;
 
@@ -49,16 +44,17 @@ export function useAniListSync() {
       setState({
         kind: "failed",
         message: result.error,
-        // A 401 means the AniList token is gone or expired — retrying cannot
-        // fix that, so the message points at where it gets reconnected.
-        needsAuth: result.status === 401,
+        // No AniList token means retrying cannot help — the message points at
+        // where it gets reconnected.
+        needsAuth: result.needsAuth,
       });
       return false;
     }
 
-    const { added } = result.data;
-    setState(added > 0 ? { kind: "added", count: added } : { kind: "idle" });
-    return added > 0;
+    setState(
+      result.added > 0 ? { kind: "added", count: result.added } : { kind: "idle" }
+    );
+    return result.added > 0;
   }, []);
 
   return { state, run };

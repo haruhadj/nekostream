@@ -9,7 +9,7 @@
 import { Image } from "expo-image";
 import { StyleSheet, Text, View } from "react-native";
 
-import type { ScheduleItem } from "@/api/types";
+import type { ScheduleRow } from "@/db/library";
 import { theme } from "@/theme";
 import { Badge } from "@/ui/badge";
 
@@ -48,7 +48,7 @@ export function ScheduleCard({
   airingNext,
   now,
 }: {
-  entry: ScheduleItem;
+  entry: ScheduleRow;
   /** The single soonest-upcoming episode across the whole list. */
   airingNext: boolean;
   now: number;

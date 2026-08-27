@@ -6,15 +6,18 @@
  * tracker's entry deliberately and overriding any field on it.
  */
 
-import { anilistRequest } from "@/lib/anilist/client";
-import { malFetch } from "@/lib/mal/client";
+// Relative, not "@/lib/*": this module is shared with the mobile client
+// through @shared/*, where "@/" means *its* src/. Same files either way — see
+// context/architecture.md's Dependency direction.
+import { anilistRequest } from "../anilist/client";
+import { malFetch } from "../mal/client";
 import {
   fromAniListStatus,
   fromMalStatus,
   MIRROR_TO_ANILIST,
   MIRROR_TO_MAL,
   type MirrorStatus,
-} from "@/lib/sync/mirror";
+} from "./mirror";
 
 export type TrackerEntry = {
   /** Null when the anime is not on this tracker's list at all. */

@@ -9,7 +9,7 @@
 
 import { StyleSheet, Text, View } from "react-native";
 
-import type { AniListMedia } from "@/api/types";
+import type { AniListMedia } from "@shared/anilist/queries";
 import { theme } from "@/theme";
 import { AnimePoster, AnimeTitle } from "@/ui/anime-grid";
 import { Badge } from "@/ui/badge";

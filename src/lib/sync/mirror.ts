@@ -6,7 +6,9 @@
  * run and a real run compute the plan exactly the same way.
  */
 
-import type { Provider } from "@/lib/providers";
+// Relative, not "@/lib/providers": the mobile client shares this module
+// through @shared/*, where "@/" means *its* src/. Same file either way.
+import type { Provider } from "../providers";
 
 /** The shared vocabulary. Both trackers map onto this, neither drives it. */
 export type MirrorStatus =

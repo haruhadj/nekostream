@@ -1,12 +1,8 @@
 import { useMemo } from "react";
 import { RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 
-import {
-  parseScheduleItem,
-  type ScheduleItem,
-  type ScheduleResponse,
-} from "@/api/types";
-import { useApiResource } from "@/api/use-resource";
+import { useQuery } from "@/data/use-query";
+import { scheduleEntries, type ScheduleRow } from "@/db/library";
 import { ScheduleCard } from "@/components/schedule-card";
 import { useNow } from "@/hooks/use-now";
 import { theme } from "@/theme";
@@ -21,27 +17,28 @@ import {
 import { groupByDay } from "@shared/schedule/group";
 
 /**
- * The schedule tab — the web's `/schedule` page against
- * `GET /api/library/schedule`, which exists precisely so this client doesn't
- * have to reconstruct `hasFeed` with one request per entry (Phase 1b).
+ * The schedule tab — the web's `/schedule` page, now reading the device
+ * database. `scheduleEntries()` is the port of `getScheduleEntries()`,
+ * including its `hasFeed` left join, so the screen still needs one query
+ * rather than one per row.
+ *
+ * The broadcast times it renders are refreshed by `sync/import.ts` when the
+ * library syncs — on the server that is the poller's six-hourly job, and there
+ * is no always-on process here to do it until Phase 5's background task.
  *
  * Days come from the shared `groupByDay`, in the phone's local time zone.
  */
 export default function ScheduleScreen() {
   const now = useNow();
 
-  const { data, loading, error, refreshing, refresh } =
-    useApiResource<ScheduleResponse>(
-      "/api/library/schedule",
-      "Could not load your schedule."
-    );
-
-  const entries = useMemo<ScheduleItem[]>(
-    () => data?.entries.map(parseScheduleItem) ?? [],
-    [data]
+  const { data, loading, error, refreshing, refresh } = useQuery(
+    scheduleEntries,
+    "Could not read your schedule."
   );
 
-  // `groupByDay` preserves the server's ascending order, so SectionList's
+  const entries = useMemo<ScheduleRow[]>(() => data ?? [], [data]);
+
+  // `groupByDay` preserves the query's ascending order, so SectionList's
   // sections come out chronological without a second sort.
   const sections = useMemo(
     () =>
