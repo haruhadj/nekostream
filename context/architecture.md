@@ -34,9 +34,11 @@ mobile/src/
                   the AuthProvider that owns the gate's status. Becoming:
                   on-device AniList/MAL OAuth with tokens in SecureStore
                   and no server session at all
-  db/             (Phase 1) the device's own Drizzle schema + expo-sqlite
-                  client + mobile/drizzle/ migrations — db/schema.ts minus
-                  userId and minus the auth tables
+  db/             the device's own database: schema.ts (a port of
+                  src/db/schema.ts minus userId and the auth tables),
+                  client.ts (expo-sqlite + drizzle), migrations-gate.tsx
+                  (applies mobile/drizzle/ at launch, before any screen
+                  renders — the phone's docker-entrypoint.sh)
   components/     screen-level pieces (cards, chips, badges)
   ui/             generic primitives — the counterpart of components/ui/
   hooks/          cross-screen hooks (the clock, the sort preference)
@@ -128,6 +130,13 @@ don't scale this horizontally without adding that coordination first.
   `drizzle/`) then `npm run db:migrate` (applies pending migrations,
   idempotent — also runs on every container boot via
   `docker-entrypoint.sh`).
+- **There are now two databases and two migration trees.** The device's is
+  `mobile/src/db/schema.ts` → `npm run db:generate` *in `mobile/`* →
+  `mobile/drizzle/`, applied at app launch by `src/db/migrations-gate.tsx`
+  rather than by a shell script. The rule that files under `drizzle/` are
+  generated and never hand-edited applies to both. They are separate
+  databases with no sync between them: AniList is what keeps the two clients'
+  library and progress agreeing, and Nyaa filters simply diverge.
 
 ## Dependency direction
 

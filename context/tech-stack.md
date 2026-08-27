@@ -45,6 +45,10 @@ are the authority over anything remembered.
 | expo-web-browser / expo-linking | ~57.0.2 / ~57.0.8 | The OAuth consent round trip and the deep link back into the app scheme. |
 | @expo/vector-icons | ^15.0.2 | Tab bar glyphs. Font-based, so it adds no native module to the dev build. The `Feather` set is what `lucide-react` (the web's icons) was forked from, so the two clients' tab bars stay recognisably the same. |
 | eslint-config-expo | ^57.0.2 | `mobile/` has its own flat config rather than joining the root's — different globals, different type-aware wiring. See the progress tracker's decision log. |
+| expo-sqlite | ~57.0.2 | The device database. Opened with `enableChangeListener: true` so drizzle's `useLiveQuery` works — see `src/db/client.ts`. Adds a config plugin to `app.json`, so it needs a dev/preview build, not Expo Go. |
+| drizzle-orm | ^0.45.2 | Same ORM and same version as the server, via its `drizzle-orm/expo-sqlite` driver — which is why the device schema is a port of `src/db/schema.ts` rather than a reinvention. Keep the two versions in step; they type the same shared rows. |
+| drizzle-kit (dev) | ^0.31.10 | `driver: "expo"` emits `drizzle/migrations.js` alongside the `.sql`, so migrations ship inside the bundle and apply at launch. `npm run db:generate` in `mobile/`; never hand-edit `mobile/drizzle/`. |
+| babel-plugin-inline-import (dev) | ^3.0.0 | Inlines the migration `.sql` files at build time. Required by drizzle's Expo setup, together with `sourceExts.push("sql")` in `metro.config.js` — with only one of the two, the import silently resolves to nothing and no migrations apply. |
 
 Deliberately **not** here: Tailwind or any styling runtime (plain
 `StyleSheet` against `mobile/src/theme.ts`), `react-native-svg`, and any
@@ -52,14 +56,14 @@ HTTP client — `mobile/src/api/client.ts` is a port of the web's
 `lib/client/request.ts` over plain `fetch`, per the rule below.
 
 **This matrix is what is installed today, and the standalone plan
-(`planning/STANDALONE.md`) changes it.** Going: `better-auth` +
-`@better-auth/expo` (and with them the `@better-auth/core` override), once
-the device does its own AniList/MAL OAuth. Coming: `expo-sqlite` +
-`drizzle-orm/expo-sqlite` (Phase 1 — the ORM already ships that driver, so
-no new library decision), `expo-auth-session` (Phase 2),
-`expo-background-task` and `expo-notifications` (Phase 5). `expo-secure-store`
-stays but changes job — tracker access/refresh tokens instead of a
-better-auth session cookie. Update the matrix as each lands, not now.
+(`planning/STANDALONE.md`) keeps changing it.** Landed in Phase 1:
+`expo-sqlite`, `drizzle-orm`, `drizzle-kit`, `babel-plugin-inline-import`.
+Still going: `better-auth` + `@better-auth/expo` (and with them the
+`@better-auth/core` override), once the device does its own AniList/MAL
+OAuth. Still coming: `expo-auth-session` (Phase 2), `expo-background-task`
+and `expo-notifications` (Phase 5). `expo-secure-store` stays but changes
+job — tracker access/refresh tokens instead of a better-auth session cookie.
+Update the matrix as each lands, not before.
 
 ## Runtime
 

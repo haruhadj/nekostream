@@ -1,8 +1,9 @@
 # Standalone Mobile Client — Implementation Plan
 
-Status: accepted; Phase 0 done (2026-08-27). Scoped 2026-08-27, superseding
-Phase 5 of `planning/PLAN.md`. MAL's public-client token exchange was
-verified before Phase 0 landed — see finding 2.
+Status: accepted; Phases 0 and 1a–1b done (2026-08-27), 1c conditional on the
+open decision below. Scoped 2026-08-27, superseding Phase 5 of
+`planning/PLAN.md`. MAL's public-client token exchange was verified before
+Phase 0 landed — see finding 2.
 
 ## Context
 
@@ -181,6 +182,16 @@ The foundation everything else sits on.
 
 **Verify:** `expo run:android` with a seeded database; rows survive a
 force-quit and a reinstall-preserving update.
+
+**Done 1a–1b (2026-08-27).** Verified as far as it goes without hardware:
+the Android bundle really contains the migration SQL, the id default and the
+foreign-key pragma (grepped, not assumed), and the generated DDL was executed
+against a real SQLite engine (`node:sqlite`) to confirm generated ids,
+explicit ids still winning, one-row-per-show, episode dedupe on
+`(entry, nyaaId)`, orphan rejection and cascade delete. **The on-device half
+of this Verify line is still outstanding** — nothing has run on a phone, so
+persistence across a force-quit and across an update is asserted by the
+platform, not observed.
 
 ---
 

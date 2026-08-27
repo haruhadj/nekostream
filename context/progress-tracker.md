@@ -17,9 +17,11 @@ data. A `preview` APK ran on a real Android 16 device.
 supersedes `PLAN.md`'s Phase 5: the app becomes standalone — its own SQLite
 database on the device, its own AniList/MAL OAuth, Nyaa discovery and the
 poll tick running on-device — because the Pi's uptime isn't guaranteed and
-every screen was dead when it was down. Phase 0 of that plan (scope/docs) is
-done; Phases 1–5 (device database, device auth, AniList direct, Nyaa on the
-device, background updates + local notifications) have not started. Phases
+every screen was dead when it was down. Phase 0 (scope/docs) and Phase 1a–1b
+(the device database: schema, drizzle/expo-sqlite wiring, migrations applied
+at launch) are done — 1c, the one-time import of the Pi's data, only happens
+if the server is retired. Phases 2–5 (device auth, AniList direct, Nyaa on
+the device, background updates + local notifications) have not started. Phases
 0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
 `components/` card survives — `api/*`, the `@better-auth/expo` stack and the
 server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
@@ -32,10 +34,14 @@ recommendation in `STANDALONE.md` is to keep both until the standalone app's
 background-update reliability is known, since retiring is irreversible in
 practice and deferring costs one idle container.
 
-**Nothing in `mobile/` has run on a device or against a live server yet.**
-Every phase so far has been verified by typecheck, lint and `expo export`
-only. That gap is the single biggest risk carried into Phase 5 — see the
-open items below.
+**What has actually run on hardware is narrow, and worth stating exactly.**
+A `preview` APK reached the login screen on a real Android 16 device and
+failed sign-in at the server (Aug 27). Everything since — Phase 4's screens
+against real data, and now the device database — has been verified by
+typecheck, lint, `expo export` and, where it was possible, by checking the
+exported bundle and running the generated SQL against a real SQLite engine.
+None of it has been observed on a phone. That gap is the single biggest risk
+carried forward — see the open items below.
 
 All core functionality in `functionality.md`'s "in scope, and shipped"
 table is live in production (Docker on a Raspberry Pi 5, per `README.md`).
@@ -79,6 +85,10 @@ with reasoning:
 | MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
 | New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
 | The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
+| Device row ids default to SQLite's own `lower(hex(randomblob(16)))`, not a UUID library or `crypto.randomUUID()` | Hermes' exact web-API surface is the kind of thing this project has already been bitten by assuming (see the `Intl` risk, still unverified). SQLite is guaranteed present — it *is* the database — and an explicitly-supplied id still wins, which is what keeps a straight copy of the server's better-auth-style text ids working if Phase 1c ever runs. | Aug 27, 2026 |
+| `PRAGMA foreign_keys = ON` on the device connection | SQLite disables foreign keys **per connection**, so the schema's `onDelete: "cascade"` is inert without it — deleting a library entry would silently orphan its filter and episodes. On the server that cleanup is the database's job; it stays the database's job here. | Aug 27, 2026 |
+| `library_entry` is unique on `anilistMediaId` alone (`library_entry_media_idx`), replacing the server's `(userId, anilistMediaId)` | With one user per device the media id carries the same meaning: a show appears in the library once. | Aug 27, 2026 |
+| Migrations apply behind a gate that renders a visible error, not a silent catch | Every screen is about to read this database, and "empty library" is the wrong way to report "the schema never applied" — the same reasoning as the auth gate surfacing a revoked token rather than rendering nothing. `MigrationsGate` sits outside `AuthProvider` because the database has to exist before anything reads it. | Aug 27, 2026 |
 | Phase 3 gate is three `<Stack.Protected>` guards, not an imperative `router.replace` in `_layout.tsx` | It's the SDK 57 docs' recommended auth pattern: expo-router redirects to whichever branch's `guard` is true when `useAuth().status` changes, so sign-in / sign-out / change-server flip screens with no navigation code. Session is tracked imperatively (getSession/signIn/signOut) rather than the client's `useSession` hook because `getAuthClient()` is rebuilt when the server URL changes. | Aug 27, 2026 |
 
 ## Open items
@@ -128,6 +138,12 @@ with reasoning:
 - Library cards don't open anything — the detail screen and the press handler
   land together, now in `STANDALONE.md`'s Phase 3/4 rather than `PLAN.md`'s
   Phase 5.
+- **The device database has never run on a device.** Phase 1's own verify
+  line is only half-done: the SQL is proven correct against `node:sqlite` and
+  proven present in the Android bundle, but "rows survive a force-quit and a
+  reinstall-preserving update" is a claim about the platform that only a
+  phone can settle. Check it on the next device run, before Phase 3 starts
+  writing real library data into it.
 - **The device becomes the only copy of Nyaa filters and discovered
   episodes** once the standalone client is the one in use. AniList still
   holds library and progress. Mitigation is an export/import in Settings, or
@@ -399,3 +415,29 @@ Two lines per session: what happened, what's next.
   STANDALONE Phase 1 — the device database (`expo-sqlite` +
   `drizzle-orm/expo-sqlite`, schema minus `userId`, migrations generated
   into `mobile/drizzle/`).
+- **2026-08-27 (STANDALONE Phase 1a–1b)** — The device database. New:
+  `mobile/src/db/schema.ts` (`library_entry`, `rss_filter`, `episode` ported
+  from `src/db/schema.ts` with identical column names, minus `userId` and the
+  five auth/Stremio tables), `db/client.ts`, `db/migrations-gate.tsx`, and
+  `mobile/drizzle.config.ts` (`driver: "expo"`) with the first migration
+  generated into `mobile/drizzle/`. Wiring: `babel.config.js` gained
+  `inline-import` for `.sql`, `metro.config.js` gained
+  `sourceExts.push("sql")` — both halves are required, and with only one the
+  import resolves to nothing and *no migrations apply silently*, which is why
+  the bundle was checked rather than trusted. Installed `expo-sqlite`,
+  `drizzle-orm@^0.45.2` (matching the server exactly), `drizzle-kit` and
+  `babel-plugin-inline-import`; `expo install` added the `expo-sqlite` config
+  plugin to `app.json`. Four decisions worth reading are in the log above —
+  SQLite-generated ids, the foreign-keys pragma, the narrowed unique index,
+  and the migration gate showing failures instead of an empty library.
+  **Verified without hardware, deliberately, rather than deferring the whole
+  check to a device:** grepped the exported Android `.hbc` for the migration
+  SQL, the index names, the id default and the pragma (all present), then ran
+  the generated DDL against a real SQLite engine via `node:sqlite` — ids
+  generate, explicit ids still win, one row per show, episode dedupe on
+  `(entry, nyaaId)`, orphans rejected, cascade clears children. `mobile/`
+  typecheck + lint clean; root typecheck/lint/test (97/97) green. **Still
+  unrun on a device** — persistence across force-quit and across an update is
+  what a phone has to show. Next: STANDALONE Phase 2 — AniList implicit grant
+  and MAL PKCE on-device, replacing `@better-auth/expo` and the server-URL
+  screen.

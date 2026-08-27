@@ -4,6 +4,7 @@ import { ActivityIndicator, View } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 
 import { AuthProvider, useAuth } from "@/auth/context";
+import { MigrationsGate } from "@/db/migrations-gate";
 import { theme } from "@/theme";
 
 /**
@@ -16,14 +17,20 @@ import { theme } from "@/theme";
  * expo-router redirects to whichever branch's guard is true whenever
  * `status` changes, so signing in or out just flips this without any
  * imperative navigation.
+ *
+ * `MigrationsGate` sits outside all of it: the device database has to exist
+ * before anything reads from it, and on this launch it may be a schema
+ * version behind the code that just updated.
  */
 export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <StatusBar style="light" />
-      <AuthProvider>
-        <RootNavigator />
-      </AuthProvider>
+      <MigrationsGate>
+        <AuthProvider>
+          <RootNavigator />
+        </AuthProvider>
+      </MigrationsGate>
     </SafeAreaProvider>
   );
 }
