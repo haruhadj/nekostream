@@ -25,8 +25,13 @@ Phase 3 (AniList directly — the three data tabs read the device database, the
 detail screen ticks progress to both trackers, `mobile/src/api/` deleted) and
 Phase 4 (Nyaa on the device — shared `lib/nyaa/*`, the filter editor, the
 episode list, magnet links) are done too. Only Phase 5 remains: background
-updates and local notifications. **Five phases of work now sit behind a login
-that has never run on a phone** — see the open items. Phases
+updates and local notifications. **Phases 1–4 have now run on a real device**
+(Android 16, Aug 27): sign-in, an 854-title import, Schedule, MAL linking and
+database persistence across a force-quit all work; two device-only bugs were
+found and fixed (Hermes' missing `Intl.RelativeTimeFormat`, and the OAuth
+redirect landing on expo-router's "Unmatched Route"). What is still unverified
+is everything that *writes* to a real account — a progress tick, a saved Nyaa
+feed, a magnet hand-off — see the open items. Phases
 0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
 `components/` card survives — `api/*`, the `@better-auth/expo` stack and the
 server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
@@ -90,6 +95,8 @@ with reasoning:
 | MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
 | New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
 | The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
+| Hermes' missing globals are shimmed in `mobile/src/polyfills.ts`, never worked around by forking the shared module | Twice now: `AbortSignal.timeout` (caught by reading React Native's source) and `Intl.RelativeTimeFormat` (caught by the app crashing on device). Both are called at module scope or on every request by code the server and the app share, and forking either would have split the domain layer permanently to paper over a runtime difference. The shim for `Intl.RelativeTimeFormat` was checked against Node's real ICU across 443 (value, unit) pairs — every range `@shared/format` can produce — rather than eyeballed. | Aug 27, 2026 |
+| The OAuth redirect URIs get real expo-router routes (`app/auth/anilist.tsx`, `app/auth/mal.tsx`) that redirect to `/` | On device the redirect intent reaches expo-router as well as `openAuthSessionAsync`, and the router rendered "Unmatched Route — Page could not be found" over a sign-in that had *succeeded*. It made a working MAL link look broken, which is how it was reported. The routes exist purely to get out of the way and let the gate decide. | Aug 27, 2026 |
 | `mobile/`'s Metro resolves shared modules' bare imports against `mobile/node_modules` (`resolver.nodeModulesPaths`) | A module under `src/lib/` resolves `fast-xml-parser` relative to *itself* — the repo root's `node_modules`, which Metro will not read. The alternative was watching the root's whole dependency tree. This way the app installs what the modules it shares need (`fast-xml-parser`, `zod`, version-matched by hand) and the two `package.json` files stay independent, which was the point of not using workspaces. Failures show up at bundle time, never at typecheck. | Aug 27, 2026 |
 | `lib/nyaa/filter.ts`'s `SavedFilter` is spelled out instead of derived from `rssFilter.$inferSelect` | The device has its own `rss_filter` table and cannot import the server's `db/schema` at all. Both schemas satisfy the explicit type structurally, and a column that drifted would fail to typecheck wherever a row is passed as a `SavedFilter`. | Aug 27, 2026 |
 | Two server modules re-pointed from `@/lib/*` to relative imports so they can be shared (`sync/mirror.ts`, `sync/tracker-entry.ts`) | `@/` means the web app's `src/` on the server and the mobile app's `src/` on the device, so any shared module importing through it resolves to the wrong place or to nothing. Three import lines changed, no behaviour changed, root tests green — and in exchange `writeAniListEntry`/`writeMalEntry` are shared outright instead of copied, so the GraphQL mutation and the MAL PATCH have one definition for both clients. | Aug 27, 2026 |
@@ -109,19 +116,15 @@ with reasoning:
 ## Open items
 
 **Mobile client — carried into `planning/STANDALONE.md`:**
-- **BLOCKED ON THE OPERATOR: two OAuth apps have to be registered before the
-  app can sign in at all.** `app.json` carries `extra.anilistClientId` and
-  `extra.malClientId` as empty strings. Redirect URIs, exactly:
-  `nekostream://auth/anilist` and `nekostream://auth/mal`. **Register MAL's
-  as App Type `other`** — `web` issues a client secret, and the public-client
-  flow this app uses depends on there being none. The login screen reports a
-  missing id rather than opening a browser onto a provider error.
-- **Untested: whether Android hands back AniList's URL fragment.** The
-  implicit grant returns the token after `#`, and whether that survives
-  `openAuthSessionAsync` is platform behaviour no off-device check can
-  settle. If it arrives empty there is no secret-free fallback — AniList's
-  code grant needs a client secret and it supports no PKCE — so this is the
-  first thing to watch on the device run.
+- ~~**BLOCKED ON THE OPERATOR: two OAuth apps.**~~ **Done Aug 27** — both
+  registered, ids in `app.json` (`49090` / `005cbba7…`), MAL as App Type
+  `other`, redirects `nekostream://auth/anilist` and `nekostream://auth/mal`.
+  MAL's console accepted the custom scheme, which had been an open question.
+- ~~**Untested: whether Android hands back AniList's URL fragment.**~~
+  **It does** (Android 16, Aug 27). Sign-in completed and the library
+  imported, so the implicit grant's `#access_token` survives
+  `openAuthSessionAsync`. This was the one risk with no secret-free fallback;
+  it is closed.
 - **The Pi-deploy blocker below is now historical.** Phase 2 removed
   better-auth, `trustedOrigins` and `MOBILE_APP_SCHEME` from the client's
   path, so the "Invalid callbackURL" failure cannot recur. Deploying the Pi
@@ -152,20 +155,25 @@ with reasoning:
 - Beware `adb exec-out screencap` on this device: it returned an all-black
   frame while the app was rendering normally. `uiautomator dump` showed the
   real view tree. Trust the hierarchy over the screenshot when they disagree.
-- **`Intl` under Hermes is still unverified.** `planning/PLAN.md`'s top risk
-  says to test `sortEntries` and `groupByDay` on a real Android device
-  "before any screen depends on them" — as of Phase 4 the Library and
-  Schedule tabs both do. If titles collate oddly or day labels come out
-  wrong on Android, this is the first thing to check; the documented fallback
-  is passing a comparator in rather than forking the shared module.
+- **`Intl` under Hermes — settled, and it is not one answer but three.**
+  Verified on device Aug 27: **`Intl.Collator` works** (Library sorts
+  correctly, `2.5 Dimensional Seduction` first under Title A–Z) and
+  **`Intl.DateTimeFormat` works** (Schedule's day headers and air times).
+  **`Intl.RelativeTimeFormat` does not exist** — it crashed the app on
+  opening any anime, and is now shimmed in `mobile/src/polyfills.ts`. The
+  lesson worth keeping: "Intl works" was never a single question, and passing
+  two of three reads exactly like passing all three until the third is
+  touched. Anything new reaching for `Intl.*` from shared code gets checked
+  on device before it is relied on.
 - `mobile/`'s eslint config still isn't type-aware, so `no-floating-promises`
   isn't enforced there. Phase 4 added plenty of async call sites, so the
   reason to revisit this is now real. Every `void`-prefixed promise in
   `mobile/src/` is deliberate; nothing enforces that it stays that way.
-- **The Phase 3 side-by-side is still owed:** same list contents, same
-  progress after a tick, and MAL actually updated — checked against AniList's
-  own web UI on the same account. That pass needs hardware and a signed-in
-  AniList account, so it is blocked behind the OAuth registrations above.
+- **Phase 3's side-by-side is half done.** The import ran on device: 854
+  titles, filter counts (Watching 94, Planning 167, Completed 570, Paused 11,
+  Dropped 12), sorted correctly. **Still owed: a progress tick** — that it
+  lands on AniList *and* MAL, and that the per-tracker outcome line says so.
+  Deliberately not driven from here: it writes to the operator's real lists.
 - **`episodeCounts()` in `db/library.ts` has no caller.** It was added for
   Phase 4's episode list, which ended up reading rows directly. Delete it
   unless Phase 5 wants it — a query nothing calls is a query nobody checks.
@@ -174,12 +182,11 @@ with reasoning:
   confirm the OS hands it to a torrent client. None of it can be faked
   off-device, and a phone with no torrent client installed shows the alert
   rather than the hand-off.
-- **The device database has never run on a device.** Phase 1's own verify
-  line is only half-done: the SQL is proven correct against `node:sqlite` and
-  proven present in the Android bundle, but "rows survive a force-quit and a
-  reinstall-preserving update" is a claim about the platform that only a
-  phone can settle. Check it on the next device run, before Phase 3 starts
-  writing real library data into it.
+- ~~**The device database has never run on a device.**~~ **Done Aug 27:**
+  migrations applied at launch (no gate error), 854 rows written, and after a
+  force-quit the library came back instantly with no re-import — the throttle
+  skipped it and the rows came from SQLite. Survival across an app *update*
+  is still unobserved; the next build over the top will show it.
 - **The device becomes the only copy of Nyaa filters and discovered
   episodes** once the standalone client is the one in use. AniList still
   holds library and progress. Mitigation is an export/import in Settings, or
@@ -570,3 +577,26 @@ Two lines per session: what happened, what's next.
   entirely device work and entirely outstanding** — a real feed, a real
   release, a real magnet hand-off. Next: STANDALONE Phase 5 — background
   updates and local notifications, the last phase.
+- **2026-08-27 (the device run)** — Phases 1–4 met hardware, and it went
+  mostly well and found two real bugs. The operator registered both OAuth apps
+  (AniList `49090`, MAL `005cbba7…` as App Type `other` — its console did
+  accept the `nekostream://` scheme); a `preview` APK went onto the Android 16
+  device over wireless adb. **Working:** migrations at launch, AniList
+  sign-in — **the implicit grant's URL fragment does survive
+  `openAuthSessionAsync`**, which was the plan's one no-fallback risk — the
+  import (854 titles, filter counts correct), Schedule's day grouping, MAL
+  linking (Settings reads "Linked"), and the device database surviving a
+  force-quit with no re-import. **Two bugs, both device-only:** (1) opening any
+  anime crashed the app — `undefined cannot be used as a constructor`, because
+  Hermes has no `Intl.RelativeTimeFormat` and `@shared/format` builds one at
+  module scope, so the route module evaluated to `undefined` and expo-router
+  then failed on `ErrorBoundary`; shimmed in `polyfills.ts`, checked against
+  Node's ICU over 443 pairs. (2) the OAuth redirect also reaches expo-router,
+  which rendered "Unmatched Route" over a *successful* MAL link — that is what
+  "MAL linking doesn't work" turned out to be; both redirect paths now have
+  routes that redirect to `/`. Worth recording plainly: the `Intl` risk had
+  been reported here as settled after Collator and DateTimeFormat both
+  passed — two of three reads exactly like three of three until something
+  touches the third. Still unverified, and left to the operator because they
+  write to real accounts: a progress tick reaching both trackers, a saved Nyaa
+  feed, and a magnet hand-off.
