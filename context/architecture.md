@@ -30,7 +30,8 @@ mobile/src/
                   re-run on focus. The replacement for the deleted api/
   sync/           import.ts (AniList lists -> device rows, plus the airing
                   refresh), progress.ts (local write first, then both
-                  trackers in parallel)
+                  trackers in parallel), refresh.ts (re-runs the saved Nyaa
+                  search; idempotent on (entry, nyaaId))
   auth/           on-device OAuth: config.ts (client ids + redirect URIs),
                   url.ts (encoding, expo-free so it can be run off-device),
                   oauth.ts (the browser round trip), anilist.ts (implicit
@@ -162,6 +163,15 @@ greater. A module is shareable only if it imports no `db`, no `env` and
 nothing from `app/`/`server/`; anything db-bound (`lib/tokens.ts`,
 `lib/anilist/import.ts`, `lib/library/refresh.ts`'s wiring) gets a device
 equivalent rather than an import.
+
+**A shared module's own dependencies must be installed in `mobile/` too.**
+A module under `src/lib/` resolves `import { XMLParser } from
+"fast-xml-parser"` relative to itself, and Metro will not read the repo root's
+`node_modules` — so `mobile/metro.config.js` points `resolver.nodeModulesPaths`
+at `mobile/node_modules`, and `mobile/package.json` carries its own copy,
+version-matched by hand. `fast-xml-parser` and `zod` are there for exactly
+this reason. Sharing a module that needs a package the app has not installed
+fails at bundle time, not at typecheck.
 
 **A shared module cannot import through `@/`.** That alias means the web
 app's `src/` on the server and the mobile app's `src/` on the device, so

@@ -2,6 +2,12 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // Some shared modules import siblings as "./rss.ts". That is load-bearing
+    // on the server -- its tests run under node --experimental-strip-types,
+    // which requires the explicit extension -- so this side allows it rather
+    // than the server dropping it. Safe here: noEmit is on, and Metro
+    // resolves the explicit file.
+    "allowImportingTsExtensions": true,
     "paths": {
       "@/*": [
         "./src/*"

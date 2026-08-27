@@ -18,4 +18,14 @@ config.watchFolders = [path.resolve(__dirname, "../src/lib")];
 // migrations.
 config.resolver.sourceExts.push("sql");
 
+// A shared module under ../src/lib resolves bare imports relative to *itself*,
+// so `import { XMLParser } from "fast-xml-parser"` inside nyaa/rss.ts looks in
+// the repo root's node_modules — which Metro will not read, because it is
+// outside both the project root and watchFolders. Pointing nodeModulesPaths at
+// mobile/node_modules makes those imports resolve against this app's own
+// dependency tree instead, which is where they belong: the app has to install
+// what the modules it shares actually need (fast-xml-parser, zod), and the two
+// package.json files stay independent.
+config.resolver.nodeModulesPaths = [path.resolve(__dirname, "node_modules")];
+
 module.exports = config;

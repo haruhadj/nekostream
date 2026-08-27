@@ -1,9 +1,9 @@
 # Standalone Mobile Client — Implementation Plan
 
-Status: accepted; Phases 0, 1a–1b, 2 and 3 done (2026-08-27), 1c conditional
-on the open decision below. Nothing has run on a device yet, and Phase 2 needs
-two OAuth app registrations from the operator before it can — see Phase 2's
-note. Scoped 2026-08-27, superseding Phase 5 of
+Status: accepted; Phases 0, 1a–1b, 2, 3 and 4 done (2026-08-27), 1c
+conditional on the open decision below. Only Phase 5 remains. **Nothing has
+run on a device yet**, and Phase 2 needs two OAuth app registrations from the
+operator before it can — see Phase 2's note. Scoped 2026-08-27, superseding Phase 5 of
 `planning/PLAN.md`. MAL's public-client token exchange was verified before
 Phase 0 landed — see finding 2.
 
@@ -300,6 +300,36 @@ The feature that justifies the app.
 
 **Verify:** save a filter, find a real release, open a magnet, confirm the OS
 hands it to a torrent client.
+
+**Done 2026-08-27.** `lib/nyaa/*` is shared whole — the RSS fetch, the title
+parsing, the magnet construction and the group/quality discovery all have one
+definition across the server and the app. Ported: `lib/library/refresh.ts` and
+the filter/episode half of `library-routes.ts`. The detail screen's
+placeholder is now the real filter panel and episode list, with
+`Linking.openURL(magnetUri)` behind the Magnet button.
+
+Two things this phase turned up, both in `mobile/`'s bundler config:
+
+- **A shared module resolves bare imports relative to itself**, so
+  `fast-xml-parser` inside `../src/lib/nyaa/rss.ts` was looked for in the repo
+  root's `node_modules` — which Metro refuses to read. Fixed with
+  `resolver.nodeModulesPaths`, pointing at `mobile/node_modules`: the app
+  installs what the modules it shares actually need, and the two
+  `package.json` files stay independent. This is the shape of every future
+  shared dependency, not a one-off.
+- **Some shared modules import siblings as `./rss.ts`**, which is load-bearing
+  on the server (its tests run under `node --experimental-strip-types`, which
+  demands the extension). `mobile/tsconfig.json` now sets
+  `allowImportingTsExtensions` rather than the server dropping it.
+
+Verified without hardware: 7 checks against a real SQLite engine — the feed
+upsert never duplicates, a re-run of the same feed adds nothing, a v2
+re-encode *is* a new release, batches store with a null episode number, "stop
+tracking" keeps the episodes it already found, and deleting the anime cascades
+to them. The bundle carries `nyaa.si`, `nyaa:infoHash`, the magnet prefix, the
+tracker list and the quality ranks. **The Verify line above is untouched by
+any of that** — a real feed, a real release and a real magnet hand-off need
+the phone.
 
 ---
 

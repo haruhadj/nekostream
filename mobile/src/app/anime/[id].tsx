@@ -1,13 +1,10 @@
 /**
  * One anime: what the device knows, plus what AniList says about it.
  *
- * This is where progress is ticked, which is why it exists now rather than in
- * a later phase — `sync/progress.ts` ports the dual-write rule, and a rule
- * nothing can invoke is not a ported rule.
- *
- * The Nyaa filter editor and the episode list belong on this screen too, and
- * arrive in Phase 4; the placeholder at the bottom says so rather than
- * pretending the screen is finished.
+ * Everything that writes lives here — the progress stepper (both trackers, in
+ * parallel), the saved Nyaa feed, and the episode list the feed produces. It
+ * is the phone's version of the web's `/anime/[id]` page, and the reason the
+ * app is worth having on a phone at all: the magnet button.
  */
 
 import { Image } from "expo-image";
@@ -23,14 +20,26 @@ import {
 } from "react-native";
 
 import { mediaById, type AniListMedia } from "@shared/anilist/queries";
+import type { SavedFilter } from "@shared/nyaa/filter";
 import { anilistAnimeUrl, malAnimeUrl } from "@shared/providers";
 
 import { AiringBadge } from "@/components/airing-badge";
+import { EpisodeList } from "@/components/episode-list";
+import { NyaaFilterPanel } from "@/components/nyaa-filter-panel";
 import { ProgressControl } from "@/components/progress-control";
 import { useQuery } from "@/data/use-query";
 import { entryById } from "@/db/library";
+import {
+  deleteFilter,
+  getFilter,
+  listEpisodes,
+  saveFilter,
+  type EpisodeRow,
+  type RssFilterRow,
+} from "@/db/nyaa";
 import { useNow } from "@/hooks/use-now";
 import { tickProgress, type SyncOutcome } from "@/sync/progress";
+import { refreshEpisodes } from "@/sync/refresh";
 import { theme } from "@/theme";
 import { Screen, ScreenLoading, SCREEN_PADDING } from "@/ui/screen";
 
@@ -74,6 +83,87 @@ export default function AnimeDetailScreen() {
       return result.outcomes;
     },
     [entry, setData]
+  );
+
+  /* ---------------------------------------------------------------- *
+   * Nyaa
+   * ---------------------------------------------------------------- */
+
+  const [filter, setFilter] = useState<RssFilterRow | null>(null);
+  const [episodes, setEpisodes] = useState<EpisodeRow[]>([]);
+  const [marking, setMarking] = useState(false);
+
+  const reloadNyaa = useCallback(async () => {
+    const [saved, rows] = await Promise.all([getFilter(id), listEpisodes(id)]);
+    setFilter(saved);
+    setEpisodes(rows);
+  }, [id]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const [saved, rows] = await Promise.all([getFilter(id), listEpisodes(id)]);
+      if (cancelled) return;
+      setFilter(saved);
+      setEpisodes(rows);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [id]);
+
+  const onSaveFilter = useCallback(
+    async (values: SavedFilter): Promise<string | null> => {
+      await saveFilter(id, values);
+
+      // Populate the list straight away: a feed saved with nothing behind it
+      // looks broken. A failure here is worth saying out loud — the feed did
+      // save, and the list will stay empty until a manual refresh.
+      let message: string | null = null;
+      try {
+        await refreshEpisodes(id);
+      } catch (thrown) {
+        message =
+          thrown instanceof Error
+            ? `Saved, but: ${thrown.message}`
+            : "Saved, but could not load episodes yet.";
+      }
+
+      await reloadNyaa();
+      return message;
+    },
+    [id, reloadNyaa]
+  );
+
+  const onRemoveFilter = useCallback(async () => {
+    await deleteFilter(id);
+    await reloadNyaa();
+  }, [id, reloadNyaa]);
+
+  const onRefreshEpisodes = useCallback(async (): Promise<string> => {
+    try {
+      const { added } = await refreshEpisodes(id);
+      await reloadNyaa();
+      return added === 0
+        ? "No new episodes."
+        : `Added ${added} new ${added === 1 ? "release" : "releases"}.`;
+    } catch (thrown) {
+      return thrown instanceof Error ? thrown.message : "Refresh failed.";
+    }
+  }, [id, reloadNyaa]);
+
+  const onMarkWatched = useCallback(
+    async (next: number) => {
+      setMarking(true);
+      try {
+        await onChange(next);
+      } finally {
+        setMarking(false);
+      }
+    },
+    [onChange]
   );
 
   if (loading) {
@@ -178,12 +268,22 @@ export default function AnimeDetailScreen() {
           <Text style={styles.description}>{stripHtml(media.description)}</Text>
         ) : null}
 
-        <View style={styles.pending}>
-          <Text style={styles.pendingText}>
-            Episode releases and the Nyaa search for this title arrive in the
-            next phase.
-          </Text>
-        </View>
+        <NyaaFilterPanel
+          defaultTitle={entry.titleRomaji}
+          savedFilter={filter}
+          onSave={onSaveFilter}
+          onRemove={onRemoveFilter}
+        />
+
+        <EpisodeList
+          episodes={episodes}
+          progress={entry.progress}
+          lastFetchedAt={filter?.lastFetchedAt ?? null}
+          hasFilter={filter !== null}
+          busy={marking}
+          onRefresh={onRefreshEpisodes}
+          onMarkWatched={onMarkWatched}
+        />
       </ScrollView>
     </Screen>
   );

@@ -48,6 +48,8 @@ are the authority over anything remembered.
 | expo-sqlite | ~57.0.2 | The device database. Opened with `enableChangeListener: true` so drizzle's `useLiveQuery` works — see `src/db/client.ts`. Adds a config plugin to `app.json`, so it needs a dev/preview build, not Expo Go. |
 | drizzle-orm | ^0.45.2 | Same ORM and same version as the server, via its `drizzle-orm/expo-sqlite` driver — which is why the device schema is a port of `src/db/schema.ts` rather than a reinvention. Keep the two versions in step; they type the same shared rows. |
 | drizzle-kit (dev) | ^0.31.10 | `driver: "expo"` emits `drizzle/migrations.js` alongside the `.sql`, so migrations ship inside the bundle and apply at launch. `npm run db:generate` in `mobile/`; never hand-edit `mobile/drizzle/`. |
+| fast-xml-parser | ^5.11.1 | Not a new library decision — `@shared/nyaa/rss` already used it on the server, and a shared module resolves its bare imports against *this* app's `node_modules` (see `metro.config.js`'s `nodeModulesPaths` note). Keep it in step with root's copy. |
+| zod | ^4.4.3 | Same reason: `@shared/nyaa/filter` carries the feed's schema. Also the project's validation library, per the root matrix. |
 | babel-plugin-inline-import (dev) | ^3.0.0 | Inlines the migration `.sql` files at build time. Required by drizzle's Expo setup, together with `sourceExts.push("sql")` in `metro.config.js` — with only one of the two, the import silently resolves to nothing and no migrations apply. |
 
 Deliberately **not** here: Tailwind or any styling runtime (plain
@@ -64,9 +66,17 @@ It contributes nothing to AniList's implicit grant either (no token exchange,
 no PKCE), so it would have been a dependency that neither flow used.
 `expo-web-browser` + `expo-crypto` cover both, in `src/auth/oauth.ts`.
 
+**When a shared module needs a package, `mobile/` installs it too.** There is
+no hoisting between the two `package.json` files, and Metro will not read the
+repo root's `node_modules` — so `fast-xml-parser` and `zod` are in both,
+version-matched by hand. That is the cost of sharing without a workspace, and
+it was the deliberate trade in the workspaces decision; when a shared module
+gains a dependency, add it here and keep the versions in step.
+
 **This matrix is what is installed today, and the standalone plan keeps
 changing it.** Landed in Phase 1: `expo-sqlite`, `drizzle-orm`, `drizzle-kit`,
-`babel-plugin-inline-import`. Landed in Phase 2: `expo-crypto` — and
+`babel-plugin-inline-import`. Landed in Phase 4: `fast-xml-parser`, `zod`.
+Landed in Phase 2: `expo-crypto` — and
 `better-auth` + `@better-auth/expo` are **gone**, along with the
 `@better-auth/core` override that existed only to reconcile them (bundle:
 4.3 MB → 3.1 MB). Still coming: `expo-background-task` and

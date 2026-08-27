@@ -22,9 +22,11 @@ every screen was dead when it was down. Done: Phase 0 (scope/docs), Phase
 better-auth and the server URL are gone from the app entirely). 1c, the
 one-time import of the Pi's data, only happens if the server is retired.
 Phase 3 (AniList directly — the three data tabs read the device database, the
-detail screen ticks progress to both trackers, `mobile/src/api/` deleted) is
-done too. Phases 4–5 (Nyaa on the device, background updates + local
-notifications) have not started. Phases
+detail screen ticks progress to both trackers, `mobile/src/api/` deleted) and
+Phase 4 (Nyaa on the device — shared `lib/nyaa/*`, the filter editor, the
+episode list, magnet links) are done too. Only Phase 5 remains: background
+updates and local notifications. **Five phases of work now sit behind a login
+that has never run on a phone** — see the open items. Phases
 0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
 `components/` card survives — `api/*`, the `@better-auth/expo` stack and the
 server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
@@ -88,6 +90,8 @@ with reasoning:
 | MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
 | New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
 | The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
+| `mobile/`'s Metro resolves shared modules' bare imports against `mobile/node_modules` (`resolver.nodeModulesPaths`) | A module under `src/lib/` resolves `fast-xml-parser` relative to *itself* — the repo root's `node_modules`, which Metro will not read. The alternative was watching the root's whole dependency tree. This way the app installs what the modules it shares need (`fast-xml-parser`, `zod`, version-matched by hand) and the two `package.json` files stay independent, which was the point of not using workspaces. Failures show up at bundle time, never at typecheck. | Aug 27, 2026 |
+| `lib/nyaa/filter.ts`'s `SavedFilter` is spelled out instead of derived from `rssFilter.$inferSelect` | The device has its own `rss_filter` table and cannot import the server's `db/schema` at all. Both schemas satisfy the explicit type structurally, and a column that drifted would fail to typecheck wherever a row is passed as a `SavedFilter`. | Aug 27, 2026 |
 | Two server modules re-pointed from `@/lib/*` to relative imports so they can be shared (`sync/mirror.ts`, `sync/tracker-entry.ts`) | `@/` means the web app's `src/` on the server and the mobile app's `src/` on the device, so any shared module importing through it resolves to the wrong place or to nothing. Three import lines changed, no behaviour changed, root tests green — and in exchange `writeAniListEntry`/`writeMalEntry` are shared outright instead of copied, so the GraphQL mutation and the MAL PATCH have one definition for both clients. | Aug 27, 2026 |
 | The anime detail screen was built in Phase 3, earlier than the plan implies | Phase 3's deliverable is progress writes, and this app had nowhere to invoke them: library cards had been non-pressable since `PLAN.md`'s Phase 4 because the screen they would open was never built. A ported dual-write rule that nothing can call is not a ported rule. The screen carries progress, metadata and tracker links only — Phase 4's episode list and Nyaa filter have a stated placeholder rather than a stub. | Aug 27, 2026 |
 | The airing refresh rides along with the library import | The Schedule tab renders `nextAiringAt`, which on the server the poller refreshes every six hours. There is no always-on process on the device until Phase 5, and the plan assigned this to no phase — so the import does it, with the same six-hour staleness and best-effort error handling, since failing to fetch broadcast times must not turn a successful library import into a reported failure. | Aug 27, 2026 |
@@ -162,9 +166,14 @@ with reasoning:
   progress after a tick, and MAL actually updated — checked against AniList's
   own web UI on the same account. That pass needs hardware and a signed-in
   AniList account, so it is blocked behind the OAuth registrations above.
-- **Nothing renders `episodeCounts()` yet.** It is in `db/library.ts` for
-  Phase 4's episode list; if Phase 4 ends up not wanting it, delete it rather
-  than leaving a query nothing calls.
+- **`episodeCounts()` in `db/library.ts` has no caller.** It was added for
+  Phase 4's episode list, which ended up reading rows directly. Delete it
+  unless Phase 5 wants it — a query nothing calls is a query nobody checks.
+- **Phase 4's verify is entirely device work:** save a filter against a show
+  that is actually airing, confirm a real release appears, tap Magnet and
+  confirm the OS hands it to a torrent client. None of it can be faked
+  off-device, and a phone with no torrent client installed shows the alert
+  rather than the hand-off.
 - **The device database has never run on a device.** Phase 1's own verify
   line is only half-done: the SQL is proven correct against `node:sqlite` and
   proven present in the Android bundle, but "rows survive a force-quit and a
@@ -533,3 +542,31 @@ Two lines per session: what happened, what's next.
   the side-by-side against AniList's web UI is still outstanding.** Next:
   STANDALONE Phase 4 — Nyaa on the device: share `lib/nyaa/*`, port
   `lib/library/refresh.ts`, filter editing, episode list, magnet links.
+- **2026-08-27 (STANDALONE Phase 4)** — Nyaa on the device. `lib/nyaa/*` is
+  shared whole — RSS fetch, title parsing, magnet construction, group/quality
+  discovery — so all four have one definition across the server and the app.
+  New: `db/nyaa.ts` (the filter/episode half of `library-routes.ts`),
+  `sync/refresh.ts` (the port of `lib/library/refresh.ts`),
+  `components/nyaa-filter-setup.tsx`, `components/nyaa-filter-panel.tsx`,
+  `components/episode-list.tsx`; the detail screen's Phase 4 placeholder is
+  now the real thing, with `Linking.openURL(magnetUri)` behind the Magnet
+  button and an explicit alert when no app can handle it. One server change:
+  `lib/nyaa/filter.ts`'s `SavedFilter` is spelled out rather than derived from
+  `rssFilter.$inferSelect`, since the device cannot import `db/schema`. **Two
+  bundler findings, both now in `architecture.md`:** a shared module resolves
+  its bare imports relative to *itself*, so `fast-xml-parser` was looked for
+  in the repo root's `node_modules` and the export failed — fixed with
+  `resolver.nodeModulesPaths` plus `fast-xml-parser` and `zod` installed in
+  `mobile/` too; and some shared modules import siblings as `./rss.ts`, which
+  is load-bearing for the server's type-stripping test runner, so
+  `mobile/tsconfig.json` sets `allowImportingTsExtensions` rather than the
+  server dropping it. Verified: 7 more checks against a real SQLite engine —
+  the feed upsert never duplicates, re-running the same feed adds nothing, a
+  v2 re-encode *is* a new release, batches store with a null episode number,
+  stop-tracking keeps the episodes it found, and deleting the anime cascades
+  to them; the bundle carries `nyaa.si`, `nyaa:infoHash`, the magnet prefix,
+  the tracker list and the quality ranks. `mobile/` typecheck + lint clean;
+  root typecheck/lint/test (97/97) green. **Phase 4's own verify line is
+  entirely device work and entirely outstanding** — a real feed, a real
+  release, a real magnet hand-off. Next: STANDALONE Phase 5 — background
+  updates and local notifications, the last phase.

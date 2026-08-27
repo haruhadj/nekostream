@@ -7,13 +7,22 @@
 
 import { z } from "zod";
 
-import type { rssFilter } from "@/db/schema";
-
-/** The stored feed, as the API hands it back. */
-export type SavedFilter = Pick<
-  typeof rssFilter.$inferSelect,
-  "query" | "category" | "filter" | "releaseGroup" | "quality"
->;
+/**
+ * The stored feed, as the API hands it back.
+ *
+ * Spelled out rather than derived from `rssFilter.$inferSelect`: this module
+ * is shared with the mobile client through `@shared/*`, which has its own
+ * `rss_filter` table and cannot import the server's `db/schema` at all. Both
+ * schemas satisfy this structurally, and a column that drifted from it would
+ * fail to typecheck wherever a row is passed as a `SavedFilter`.
+ */
+export type SavedFilter = {
+  query: string;
+  category: string;
+  filter: string;
+  releaseGroup: string | null;
+  quality: string | null;
+};
 
 /** The same shape as a request body, with Nyaa's defaults filled in. */
 export const filterSchema = z.object({
