@@ -7,17 +7,30 @@ The most-updated file in this set. If this looks stale, everything else in
 
 Past the initial build. Day-to-day development still proceeds as a series of
 small, complete features on `main` — but one genuinely large, multi-session
-feature is now in progress: a React Native (Expo) mobile client, scoped in
-`planning/PLAN.md`. Phases 0–4 are done — scope/docs, the API gaps it
-needs, scaffolding `mobile/`, server-URL entry + `@better-auth/expo` auth
-with the app-entry gate, and now the four-tab shell with Library, Schedule
-and Search reading real data. Phase 5 (the write screens — detail, progress,
-episodes/magnets, the full settings screen, mirror) has not started. See
-`planning/PLAN.md` for the phase breakdown and where Phases 2–4 deviated
-from it (SDK 57 moved past what the plan assumed; Phase 3 used
-`Stack.Protected` guards and needed an npm `overrides` pin; Phase 4 shipped a
-Settings tab early and left library cards non-pressable until the detail
-screen exists).
+feature is in progress: a React Native (Expo) mobile client. Phases 0–4 of
+`planning/PLAN.md` are done — scope/docs, the API gaps it needs, scaffolding
+`mobile/`, server-URL entry + `@better-auth/expo` auth with the app-entry
+gate, and the four-tab shell with Library, Schedule and Search reading real
+data. A `preview` APK ran on a real Android 16 device.
+
+**The premise then changed (2026-08-27).** `planning/STANDALONE.md`
+supersedes `PLAN.md`'s Phase 5: the app becomes standalone — its own SQLite
+database on the device, its own AniList/MAL OAuth, Nyaa discovery and the
+poll tick running on-device — because the Pi's uptime isn't guaranteed and
+every screen was dead when it was down. Phase 0 of that plan (scope/docs) is
+done; Phases 1–5 (device database, device auth, AniList direct, Nyaa on the
+device, background updates + local notifications) have not started. Phases
+0–4 of `PLAN.md` are not wasted: every screen, `ui/` primitive and
+`components/` card survives — `api/*`, the `@better-auth/expo` stack and the
+server-URL screen do not. Read `PLAN.md` for where Phases 2–4 deviated from
+it (SDK 57 moved past what the plan assumed; Phase 3 used `Stack.Protected`
+guards and needed an npm `overrides` pin; Phase 4 shipped a Settings tab
+early and left library cards non-pressable).
+
+**Whether the server and web app are retired is undecided** — the
+recommendation in `STANDALONE.md` is to keep both until the standalone app's
+background-update reliability is known, since retiring is irreversible in
+practice and deferring costs one idle container.
 
 **Nothing in `mobile/` has run on a device or against a live server yet.**
 Every phase so far has been verified by typecheck, lint and `expo export`
@@ -61,11 +74,24 @@ with reasoning:
 | The three data tabs share `api/use-resource.ts`, which refetches on screen focus | It is this app's `router.refresh()`. The web calls that after adding a title so the library page re-renders; here Search and Library are separate screens with no shared store, and a focus refetch means neither has to know the other exists. Refetch-on-focus is silent by design — only a pull-to-refresh shows a spinner. | Aug 27, 2026 |
 | Library's first-run banner reads the sync request's own state, not `anilistSyncedAt` from `GET /api/settings` | Functionally identical — the web's banner is `AniListSync`'s request state too, and `anilistSyncedAt` only seeds its initial value there. Since the import fires on launch on mobile anyway, reading the flag would cost a second round trip to compute what the request already reports. The field stays typed in `api/types.ts` for Phase 5's settings screen. | Aug 27, 2026 |
 | The server URL is baked into `mobile/app.json`'s `extra.serverUrl`; the entry screen became a Settings-only override | Reverses Phase 3's "entered on first launch". The original reasoning — every operator's `BETTER_AUTH_URL` differs — is true but irrelevant at one operator: the build already knows its server, so asking for it on every install bought nothing. `no-server` is now reached only deliberately (`changeServer()`), tracked as its own `changingServer` flag rather than inferred from an empty URL, since with a default there is never an empty URL. Drop `extra.serverUrl` from app.json and the first-launch flow returns unchanged — which is what any other operator building this gets. | Aug 27, 2026 |
+| The mobile client goes standalone — own on-device database, direct AniList/MAL/Nyaa access — rather than moving the server to a paid host or splitting it | The Pi's uptime isn't guaranteed and every screen in the app was dead when it was down. Standalone removes the uptime problem instead of renting a solution to it. The one job a phone genuinely can't do is the Stremio addon, which the operator doesn't use. Accepted cost, stated plainly: new-episode detection goes from a one-minute server tick to best-effort background work with a ~15-minute floor throttled by Doze and the OEM battery manager, and email becomes a local notification. `planning/STANDALONE.md`. | Aug 27, 2026 |
+| This converges on Aniyomi/Mihon, and `project-overview.md` now says so | The project defined itself against them as "a phone app, not something that runs unattended on a home server." For the phone client that distinction stops being true here. What stays genuinely distinct is the per-show saved-Nyaa-filter model and episode-level release tracking; the *server* still holds the original distinction while it runs. Recorded because a doc that quietly keeps claiming a dead distinction is worse than one that concedes it. | Aug 27, 2026 |
+| MAL's public-client token exchange verified before Phase 0 landed, not assumed | It was the one load-bearing external claim in the standalone plan and it gated Phase 2. [MAL's docs](https://myanimelist.net/apiconfig/references/authorization): `client_secret` is "OPTIONAL in Scheme 1" (credentials in the request body) and "If your client doesn't have a client secret, `client_secret` will be an empty"; App Type `other` is issued none. So the app sends `client_id` + `code` + `code_verifier` in the body, no secret, no Basic header — refresh the same way. Constraints that follow: `code_challenge_method` is **`plain` only** (no S256), and the new MAL app must register as App Type `other`, not `web`. If it had needed a secret, MAL sync would have been the single feature still requiring a server. | Aug 27, 2026 |
+| New OAuth app registrations for the mobile client, rather than reusing the server's | Both consoles take one redirect URI per client, and the existing ones point at the server, which must keep working if the web app survives. | Aug 27, 2026 |
+| The device schema drops `userId` and the `user`/`session`/`account`/`stremio_token` tables | A device has exactly one user. Keeping `userId` would be ceremony enforcing an invariant that cannot be violated there. **This does not relax the rule on the server**, where every domain query stays scoped to the caller. | Aug 27, 2026 |
 | Phase 3 gate is three `<Stack.Protected>` guards, not an imperative `router.replace` in `_layout.tsx` | It's the SDK 57 docs' recommended auth pattern: expo-router redirects to whichever branch's `guard` is true when `useAuth().status` changes, so sign-in / sign-out / change-server flip screens with no navigation code. Session is tracked imperatively (getSession/signIn/signOut) rather than the client's `useSession` hook because `getAuthClient()` is rebuilt when the server URL changes. | Aug 27, 2026 |
 
 ## Open items
 
-**Mobile client — carried into Phase 5:**
+**Mobile client — carried into `planning/STANDALONE.md`:**
+- **The Pi-deploy blocker below now only matters if the current APK is used
+  before STANDALONE's Phase 2 lands.** Device-side AniList/MAL auth removes
+  better-auth, `trustedOrigins` and `MOBILE_APP_SCHEME` from the client's
+  path entirely, so that failure mode disappears with Phase 2 rather than
+  being fixed. Deploying the Pi is still worth doing if the web app is being
+  kept (it is running a build without Phase 1's API additions), but it no
+  longer gates the mobile work. Left in full below because it is the only
+  written record of what was actually observed on hardware.
 - **BLOCKED ON A DEPLOY: the Pi runs a pre-Phase-1 build, so the app cannot
   sign in.** Confirmed on device (Aug 27), not just inferred: a `preview`
   APK on a real Android 16 phone validated `https://nyaa.haruhadj.org`
@@ -99,8 +125,15 @@ with reasoning:
   isn't enforced there. Phase 4 added plenty of async call sites, so the
   reason to revisit this is now real. Every `void`-prefixed promise in
   `mobile/src/` is deliberate; nothing enforces that it stays that way.
-- Library cards don't open anything — the Phase 5 detail screen and the press
-  handler land together.
+- Library cards don't open anything — the detail screen and the press handler
+  land together, now in `STANDALONE.md`'s Phase 3/4 rather than `PLAN.md`'s
+  Phase 5.
+- **The device becomes the only copy of Nyaa filters and discovered
+  episodes** once the standalone client is the one in use. AniList still
+  holds library and progress. Mitigation is an export/import in Settings, or
+  keeping the server — tracked as the open decision above, not yet built.
+- **Two clients' Nyaa filters diverge** if both keep running. Inherent to
+  keeping both; documented, and deliberately not solved with sync.
 
 **Verify-during-implementation (not blocking, but worth checking next time
 this area is touched):**
@@ -337,3 +370,32 @@ Two lines per session: what happened, what's next.
   `adb shell input`. **Result: the client is fine, the server is not** — see
   the open items. Everything up to the auth wall works on hardware; the wall
   is `main` lacking Phase 1. Nothing in `mobile/` is committed yet.
+- **2026-08-27 (standalone pivot, Phase 0)** — Scoped `planning/STANDALONE.md`
+  (`5de5d12`), which supersedes `PLAN.md`'s Phase 5: the app stops being a
+  client against this server and becomes standalone. Driven by uptime, not
+  by anything wrong with the client — the device run had just proved the
+  client works and the server was the wall. Verified MAL's public-client
+  token exchange against its live docs *before* touching anything, since it
+  was the plan's one untested external claim and gated Phase 2: App Type
+  `other` is issued no secret, and the token endpoint's body-credentials
+  scheme makes `client_secret` optional, so `client_id` + `code` +
+  `code_verifier` suffices; PKCE is `plain`-only there. Recorded in the plan
+  and the decision log, and the corresponding risk row retired. Then executed
+  Phase 0 (docs only, no code, matching how `PLAN.md`'s own Phase 0 ran):
+  `functionality.md` gained an "in scope, in progress" section — kept
+  separate from the shipped table on purpose — with rows for the standalone
+  client, on-device storage, direct tracker auth/sync, on-device Nyaa
+  discovery and local notifications; its push-notification row now excludes
+  only the server-sent kind, and its offline-queueing row was rewritten since
+  "writes against the live server" stopped being true.
+  `project-overview.md` concedes the Aniyomi/Mihon comparison outright rather
+  than keeping a distinction that no longer holds for this client.
+  `architecture.md` documents `mobile/db/`, the widening of `@shared/*` from
+  four modules to most of the domain layer, and the sharpened rule that goes
+  with it (shareable = no `db`, no `env`, nothing from `app/`/`server/`).
+  `PLAN.md` marks Phase 5 superseded at both its header and the section
+  itself. **Undecided and left to the operator:** whether the server and web
+  app are retired — recommendation is to keep both for a few weeks. Next:
+  STANDALONE Phase 1 — the device database (`expo-sqlite` +
+  `drizzle-orm/expo-sqlite`, schema minus `userId`, migrations generated
+  into `mobile/drizzle/`).

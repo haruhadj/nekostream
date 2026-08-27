@@ -57,10 +57,18 @@ because the audience can set those.
   point of this project is removing that manual loop.
 - **Aniyomi/Mihon (mobile app)** — closest philosophical match (the
   dual-tracker-write model in `lib/sync/progress.ts` is deliberately the
-  same pattern) but it's a full standalone app with its own source/tracking
-  logic, not a thin client to a server that runs unattended and emails you —
-  which is why NekoStream's own mobile client (`mobile/`) is a client
-  against this project's existing API instead of a separate app to adopt.
+  same pattern). This project used to distinguish itself from them by saying
+  they are phone apps rather than something that runs unattended on a home
+  server. **As of 2026-08-27 that distinction no longer holds for this
+  project's own phone client:** `mobile/` is being re-hosted as a standalone
+  app that talks to AniList, MAL and Nyaa directly and stores everything on
+  the device (`planning/STANDALONE.md`), because the Pi's uptime isn't
+  guaranteed and every screen was dead when it was down. That client is
+  architecturally Mihon-shaped, and the honest reason to keep building it
+  rather than adopt Mihon is narrower than it was: the per-show saved-Nyaa-
+  filter model and episode-level release tracking, which is the part worth
+  keeping. The *server* still holds the original distinction — it polls
+  unattended and emails, which no phone app does.
 - **Sonarr + a tracker's own apps** — Sonarr assumes you want automated
   downloading, which is explicitly out of scope here; NekoStream stays at
   "here's the magnet link."

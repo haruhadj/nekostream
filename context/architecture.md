@@ -11,9 +11,12 @@ src/
   server/         Hono route modules (one per API area) + server/shared.ts
   lib/            Everything else, grouped by concern (see below)
   db/             Drizzle schema + client
-mobile/           A separate Expo/React Native project — a second client
-                  against the same API, own package.json, not part of the
-                  npm-workspaces or Next.js build (see Dependency direction)
+mobile/           A separate Expo/React Native project — own package.json,
+                  not part of the npm-workspaces or Next.js build. Being
+                  re-hosted as a standalone app that owns its own SQLite
+                  database and talks to AniList/MAL/Nyaa directly, rather
+                  than a client against this server's API
+                  (see Dependency direction, and planning/STANDALONE.md)
 ```
 
 Inside `mobile/`, mirroring the web app's own `@/*` → `./src/*` alias:
@@ -24,9 +27,16 @@ mobile/src/
                   app/(tabs)/ is the four-destination tab bar that matches
                   the web's SiteHeader (Library, Schedule, Search, Settings)
   api/            client.ts (the ApiResult fetch wrapper), types.ts (wire
-                  shapes + their Date-parsing mappers), use-resource.ts
-  auth/           server URL storage, the @better-auth/expo client, the
-                  AuthProvider that owns the gate's status
+                  shapes + their Date-parsing mappers), use-resource.ts —
+                  all three are replaced by local queries + direct AniList
+                  calls as STANDALONE.md's Phase 3 lands
+  auth/           today: server URL storage, the @better-auth/expo client,
+                  the AuthProvider that owns the gate's status. Becoming:
+                  on-device AniList/MAL OAuth with tokens in SecureStore
+                  and no server session at all
+  db/             (Phase 1) the device's own Drizzle schema + expo-sqlite
+                  client + mobile/drizzle/ migrations — db/schema.ts minus
+                  userId and minus the auth tables
   components/     screen-level pieces (cards, chips, badges)
   ui/             generic primitives — the counterpart of components/ui/
   hooks/          cross-screen hooks (the clock, the sort preference)
@@ -127,11 +137,23 @@ deliberately dependency-free (no `db` import) because client components
 import it directly for the AniList/MAL label constants — pulling `db` in
 would drag the database into the client bundle.
 
-`mobile/` may import from `src/lib/` (its dependency-free modules only —
-`lib/library/filters.ts`, `lib/library/sort.ts`, `lib/schedule/group.ts`,
-`lib/providers.ts`) but never from `src/app/`, `src/server/`, or `src/db/`.
-It talks to the server only over the same `/api/*` HTTP surface the web app
-uses, never by importing server code or querying the database directly.
+`mobile/` may import from `src/lib/` — its dependency-free modules, via the
+`@shared/*` alias — but **never** from `src/app/`, `src/server/`, or
+`src/db/`. That rule matters more under the standalone plan, not less: the
+set of shared modules widens from four (`lib/library/filters.ts`,
+`lib/library/sort.ts`, `lib/schedule/group.ts`, `lib/providers.ts`) to most
+of the domain layer, so the temptation to reach one module further is
+greater. A module is shareable only if it imports no `db`, no `env` and
+nothing from `app/`/`server/`; anything db-bound (`lib/tokens.ts`,
+`lib/anilist/import.ts`, `lib/library/refresh.ts`'s wiring) gets a device
+equivalent rather than an import.
+
+The two clients are no longer the same kind of thing. The web app talks to
+this server; the standalone mobile app talks to AniList, MyAnimeList and
+Nyaa directly and queries its own on-device SQLite. It does not import
+server code, and it no longer calls `/api/*` either. If both keep running,
+AniList holds library and progress consistently across them, while Nyaa
+filters are per-client and diverge by design.
 
 ## Testing layout
 

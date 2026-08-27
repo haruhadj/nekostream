@@ -8,7 +8,18 @@ guards instead of an imperative redirect gate; a `@better-auth/core`
 override to undo an npm version-skew; local per-screen styles rather than
 pulling `ui/` forward from Phase 4), and where Phase 4 did (a fourth
 Settings tab built early, no preview sheet on Search, non-pressable library
-cards until Phase 5's detail screen exists). Phase 5 not started.
+cards until Phase 5's detail screen exists).
+
+**Phase 5 is superseded and will not be built as written — see
+`planning/STANDALONE.md` (2026-08-27).** That plan changes this document's
+premise: the app stops being a client against this server and becomes
+standalone, storing everything on the device and talking to AniList, MAL and
+Nyaa directly. Phases 0–4 are unaffected as history, and their screens, `ui/`
+primitives and `components/` survive; what does not survive is `api/client.ts`,
+`api/types.ts`, `api/use-resource.ts`, the `@better-auth/expo` auth stack and
+the server-URL screen. Read Phase 5 below only for the screen inventory it
+specifies — its endpoints, its auth model and its "no change to the poller or
+tracker sync" boundary no longer apply.
 
 ## Context
 
@@ -443,7 +454,12 @@ app on the same account.
 
 ---
 
-## Phase 5 — Detail, progress, episodes, settings
+## Phase 5 — Detail, progress, episodes, settings — SUPERSEDED
+
+**Superseded 2026-08-27 by `planning/STANDALONE.md`.** Kept for its screen
+inventory only; every endpoint, the better-auth linking gap and the
+"unchanged poller/tracker sync" assumption below are void. Do not implement
+from this section.
 
 Where the writes live.
 

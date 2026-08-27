@@ -51,6 +51,16 @@ Deliberately **not** here: Tailwind or any styling runtime (plain
 HTTP client — `mobile/src/api/client.ts` is a port of the web's
 `lib/client/request.ts` over plain `fetch`, per the rule below.
 
+**This matrix is what is installed today, and the standalone plan
+(`planning/STANDALONE.md`) changes it.** Going: `better-auth` +
+`@better-auth/expo` (and with them the `@better-auth/core` override), once
+the device does its own AniList/MAL OAuth. Coming: `expo-sqlite` +
+`drizzle-orm/expo-sqlite` (Phase 1 — the ORM already ships that driver, so
+no new library decision), `expo-auth-session` (Phase 2),
+`expo-background-task` and `expo-notifications` (Phase 5). `expo-secure-store`
+stays but changes job — tracker access/refresh tokens instead of a
+better-auth session cookie. Update the matrix as each lands, not now.
+
 ## Runtime
 
 - **Node 22+** required (README states this; dev environment observed at

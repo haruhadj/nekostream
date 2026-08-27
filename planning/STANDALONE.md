@@ -1,7 +1,8 @@
 # Standalone Mobile Client — Implementation Plan
 
-Status: proposed, not started. Scoped 2026-08-27, superseding Phase 5 of
-`planning/PLAN.md`.
+Status: accepted; Phase 0 done (2026-08-27). Scoped 2026-08-27, superseding
+Phase 5 of `planning/PLAN.md`. MAL's public-client token exchange was
+verified before Phase 0 landed — see finding 2.
 
 ## Context
 
@@ -77,11 +78,19 @@ in the redirect fragment with no exchange. MyAnimeList supports PKCE with a
 because better-auth's `genericOAuth` needed a static value; a native app
 generates a fresh verifier per request, which is PKCE used correctly.
 
-**⚠ Verify MAL's public-client token exchange against its live API docs
-before starting Phase 2.** This is the one load-bearing external claim in
-this plan that has not been tested against the real service. If MAL requires
-a secret, MAL sync becomes the one feature that still needs a server, and
-the plan needs revisiting — everything else stands.
+**✅ Verified against MAL's live docs (2026-08-27), so Phase 2 is unblocked.**
+[MAL's authorization reference](https://myanimelist.net/apiconfig/references/authorization)
+describes two client-authentication schemes for `POST /v1/oauth2/token` —
+credentials in the request body (Scheme 1) or HTTP Basic (Scheme 2) — and
+makes `client_secret` "OPTIONAL in Scheme 1; REQUIRED in Scheme 2", adding:
+"If your client doesn't have a client secret, `client_secret` will be an
+empty." A client registered with **App Type `other`** is issued no secret.
+So the mobile app uses Scheme 1: `client_id` + `code` + `code_verifier` +
+`grant_type` in the body, no `Authorization` header, no secret. Refresh
+authenticates the same way. Two constraints that follow, both already in the
+plan: `code_challenge_method` is **`plain` only** — MAL supports no S256 —
+and the new MAL app must be registered as App Type `other`, not `web`
+(the server's existing app keeps its secret and is untouched).
 
 **3. Drizzle runs on the device.** `drizzle-orm/expo-sqlite` ships in the
 installed `drizzle-orm`. The device can use the same ORM and the same
@@ -184,8 +193,9 @@ server-URL screen and the baked `extra.serverUrl`. All of that goes.
   `WebBrowser.openAuthSessionAsync`, redirect `nekostream://auth/anilist`,
   token to SecureStore.
 - **2b.** MAL PKCE (`plain`, per MAL's own limitation), fresh verifier per
-  attempt, refresh-token handling with expiry tracked on device. **Blocked on
-  the verification flagged above.**
+  attempt, refresh-token handling with expiry tracked on device. Token
+  requests use body-credentials auth with `client_id` and no secret, per the
+  verification above. Register the mobile app as App Type `other`.
 - **2c.** Rework the gate: `loading | no-tracker | ready`. MAL becomes
   optional and linkable later, as on the web.
 
@@ -248,7 +258,7 @@ rather than asserting it works.
 
 | Risk | Mitigation |
 |---|---|
-| MAL needs a client secret after all | Verify before Phase 2. If so, MAL sync is the one thing needing a server; ship AniList-only and decide separately. |
+| ~~MAL needs a client secret after all~~ | **Retired 2026-08-27** — verified against MAL's docs: App Type `other` gets no secret, and the token endpoint's body-credentials scheme makes `client_secret` optional. Residual risk is only that registration is misconfigured as `web`. |
 | Background updates are unreliable on this device | Known and accepted. Measure it in Phase 5; a manual pull-to-refresh always works. Do not promise timeliness the platform can't give. |
 | The device becomes the only copy of filters/episodes | An export/import in Settings, or keep the server (see the open decision). |
 | Two clients' Nyaa filters diverge | Inherent to keeping both. Document it; don't build sync for it. |
