@@ -16,6 +16,23 @@ mobile/           A separate Expo/React Native project — a second client
                   npm-workspaces or Next.js build (see Dependency direction)
 ```
 
+Inside `mobile/`, mirroring the web app's own `@/*` → `./src/*` alias:
+
+```
+mobile/src/
+  app/            expo-router file tree. app/_layout.tsx is the auth gate;
+                  app/(tabs)/ is the four-destination tab bar that matches
+                  the web's SiteHeader (Library, Schedule, Search, Settings)
+  api/            client.ts (the ApiResult fetch wrapper), types.ts (wire
+                  shapes + their Date-parsing mappers), use-resource.ts
+  auth/           server URL storage, the @better-auth/expo client, the
+                  AuthProvider that owns the gate's status
+  components/     screen-level pieces (cards, chips, badges)
+  ui/             generic primitives — the counterpart of components/ui/
+  hooks/          cross-screen hooks (the clock, the sort preference)
+  theme.ts        the web's globals.css tokens, ported flat and dark-only
+```
+
 `lib/` subfolders, one per external system or domain concern:
 
 ```

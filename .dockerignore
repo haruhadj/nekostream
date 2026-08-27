@@ -21,3 +21,9 @@ docker-compose.yml
 # Source screenshots/pastes — not app assets, keep them out of the image
 public/Pasted*
 public/Snipaste*
+
+# The Expo client is a second app against this server's API, never part of its
+# image. Excluded as a whole directory because the bare `node_modules` rule
+# above only matches the root one — without this, `COPY . .` would drag
+# mobile/node_modules into the build context.
+mobile

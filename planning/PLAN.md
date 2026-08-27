@@ -1,8 +1,14 @@
 # React Native (Expo) Client — Implementation Plan
 
-Status: in progress. Scoped 2026-08-24. Phase 0 and Phase 1 done
-(2026-08-27) — see `context/progress-tracker.md`'s session log for what
-landed. Phases 2–5 not started.
+Status: in progress. Scoped 2026-08-24. Phases 0–4 done (2026-08-27) — see
+`context/progress-tracker.md`'s session log for what landed, including where
+Phase 2 deviated from this document (SDK 57's `src/app/` router convention,
+a separate eslint.config.js), where Phase 3 did (`Stack.Protected`
+guards instead of an imperative redirect gate; a `@better-auth/core`
+override to undo an npm version-skew; local per-screen styles rather than
+pulling `ui/` forward from Phase 4), and where Phase 4 did (a fourth
+Settings tab built early, no preview sheet on Search, non-pressable library
+cards until Phase 5's detail screen exists). Phase 5 not started.
 
 ## Context
 
@@ -67,7 +73,7 @@ can't drift apart." A third client must not fork them.
 | Auth | `@better-auth/expo` | Official plugin, keeps one session model; alternatives below |
 | Repo layout | `mobile/` in this repo, own `package.json`, **not** an npm-workspaces restructure | Workspaces would move `src/`, breaking `Dockerfile`, `drizzle.config.ts` and the `@/*` alias for zero gain today |
 | Code sharing | Metro `watchFolders` + a tsconfig path alias onto `../src/lib` | Shares the four pure modules without publishing a package |
-| Server URL | Entered in-app on first launch, persisted | Self-hosted: every operator's `BETTER_AUTH_URL` differs |
+| Server URL | Baked into `app.json`'s `extra.serverUrl`; the entry screen survives as a Settings override | **Revised 2026-08-27.** Originally "entered in-app on first launch" because every operator's `BETTER_AUTH_URL` differs — true, but there is one operator, and a build already knows its own server. Asking every install for an address it was built with was friction with nothing behind it. Omitting `extra.serverUrl` restores the first-launch screen for anyone else building this. |
 | Styling | Plain `StyleSheet` + a `theme.ts` of the existing tokens | No Tailwind runtime; the palette is ~10 values and the app is dark-only |
 
 ### Auth, considered properly
@@ -193,38 +199,81 @@ and without a session cookie; confirm 401 shape is unchanged.
 
 ---
 
-## Phase 2 — Scaffold `mobile/`
+## Phase 2 — Scaffold `mobile/` ✅ done 2026-08-27
+
+**Deviations from the tree below, forced by the actual SDK 57 scaffold**
+(`AGENTS.md`'s own instruction is to read the versioned docs before writing
+code — SDK 57 turned out to have moved past what this plan assumed):
+- Routes live in `mobile/src/app/`, not top-level `mobile/app/` —
+  `create-expo-app@latest`'s current default template puts them there, and
+  `@/*` already points at `./src/*` in the generated tsconfig, matching the
+  root web app's own `@/*` → `./src/*` convention. Fighting that to match
+  this document's tree literally would mean working against expo-router's
+  auto-detection for no real benefit.
+- `mobile/` did **not** join the root `eslint.config.mjs` — it has its own
+  `mobile/eslint.config.js` (`eslint-config-expo/flat`), and the root
+  config now ignores `mobile/**`. A shared flat config across a Next.js web
+  app and a React Native app (different globals, different type-aware
+  project wiring) wasn't worth the coupling. `mobile/`'s config is **not**
+  type-aware yet (no `parserOptions.project`), so `no-floating-promises`
+  isn't enforced there — revisit once Phase 3+ adds real async call sites.
+- Root `tsconfig.json` gained `"mobile"` in its `exclude` array — without
+  it, the root `tsc --noEmit` swept up `mobile/`'s files under the *web
+  app's* compiler options (DOM lib, different `@/*` target) and broke.
+- The demo scaffold's `NativeTabs`/`unstable-native-tabs`,
+  `react-native-reanimated`-driven splash animation, and `@expo/ui`/
+  `expo-glass-effect`/`expo-symbols` liquid-glass demo were deleted rather
+  than adapted — Phase 4's tab bar should use the stable `Tabs` from
+  `expo-router`, not the `unstable-*` native tab API, for a self-hosted
+  single-operator app.
+
+Verified end-to-end: `npx tsc --noEmit`, `npx eslint .`, and — since
+`expo start` itself is an interactive dev server unsuited to a one-shot
+check — `npx expo export --platform web` and `--platform android` both
+bundled cleanly, and the output was grepped to confirm the `@shared/*`
+import's actual content (not just its type) made it into the bundle. Root
+`npm run typecheck && npm run lint && npm test` still green afterward.
 
 ```
 mobile/
   app.json                 scheme: "nekostream", bundle ids
   eas.json                 development / preview profiles
   metro.config.js          watchFolders -> ../src/lib
-  tsconfig.json            paths: @shared/* -> ../src/lib/*
+  babel.config.js          module-resolver: makes @shared/* resolve at
+                           bundle time, not just under tsc — see below
+  eslint.config.js          own flat config (eslint-config-expo), not the
+                           root's — see the Phase 2 deviations above
+  tsconfig.json            paths: @/* -> ./src/*, @shared/* -> ../src/lib/*
   package.json
-  app/                     expo-router
-    _layout.tsx            SafeAreaProvider, theme, auth gate
-    server-url.tsx         first-launch server entry
-    login.tsx
-    (tabs)/
-      _layout.tsx          4 tabs, matching SiteHeader
-      index.tsx            Library
-      schedule.tsx
-      search.tsx
-      settings.tsx
-    anime/[id].tsx
-    settings/mirror.tsx
   src/
+    app/                   expo-router root — SDK 57's default location,
+                           not top-level app/, see the deviations above
+      _layout.tsx           SafeAreaProvider, theme, auth gate
+      index.tsx              Phase 2: debug health-check screen. Becomes
+                             the auth-gated redirect once Phase 3 lands.
+      server-url.tsx         first-launch server entry (Phase 3)
+      login.tsx              (Phase 3)
+      (tabs)/                4 tabs, matching SiteHeader (Phase 4) — use
+                             expo-router's stable Tabs, not NativeTabs
+        _layout.tsx
+        index.tsx            Library
+        schedule.tsx
+        search.tsx
+        settings.tsx
+      anime/[id].tsx          (Phase 5)
+      settings/mirror.tsx     (Phase 5)
     api/
-      client.ts            apiRequest/apiSend, ported
-      types.ts             response types mirroring the routes
+      client.ts             apiRequest/apiSend, ported (done) — baseUrl and
+                             auth-header seams left for Phase 3 to fill in
+      types.ts               response types mirroring the routes, grown
+                             per-phase as screens start calling endpoints
     auth/
-      client.ts            createAuthClient + expoClient
-      server-url.ts        read/write/validate the base URL
-    theme.ts               the design tokens
-    ui/                    Button, Input, Badge, Sheet, Switch,
-                           AnimeGrid, AnimePoster, Wordmark
-    components/            screen-level components
+      client.ts             createAuthClient + expoClient (Phase 3)
+      server-url.ts          read/write/validate the base URL (Phase 3)
+    theme.ts                the design tokens, ported from globals.css (done)
+    ui/                     Button, Input, Badge, Sheet, Switch,
+                            AnimeGrid, AnimePoster, Wordmark (Phase 4+)
+    components/             screen-level components (Phase 4+)
 ```
 
 ### Metro + shared modules
@@ -249,43 +298,79 @@ Pitfalls, in the order they will bite:
 3. Never share anything that transitively imports `db`, `next/*` or DOM
    types. `providers.ts`'s dependency-free rule now protects two clients.
 
-### API client
+### API client ✅ done 2026-08-27
 
-Port `src/lib/client/request.ts` verbatim — the `ApiResult<T>`
-discriminated union that never throws is exactly right here, and its
-`UNREACHABLE` branch matters far more on a phone than in a browser. Two
-changes: prefix a stored base URL, and attach
-`Cookie: await authClient.getCookie()` with `credentials: "omit"`.
+Ported `src/lib/client/request.ts` (`mobile/src/api/client.ts`) — the
+`ApiResult<T>` discriminated union verbatim, `UNREACHABLE` branch and all.
+Base-URL prefixing is done now (`setBaseUrl`/`getBaseUrl`); the cookie
+attachment isn't — Phase 3 doesn't exist yet, so there's no `authClient` to
+call `.getCookie()` on. Left a `setAuthHeadersProvider()` seam instead (a
+no-op by default) for Phase 3 to fill in, rather than leaving a broken
+import to a module that doesn't exist yet.
 
-**Verify:** `npx expo start` builds; a debug screen renders
-`GET /api/health` against a dev server.
+**Verify:** confirmed — see "Verified end-to-end" above. The literal
+`npx expo start builds` check wasn't run as written (that starts an
+interactive dev server with no exit, unsuited to a one-shot check);
+`npx expo export` for both platforms is the non-interactive equivalent and
+was used instead. The debug screen (`src/app/index.tsx`) exists and calls
+`GET /api/health` via `apiRequest`, ready to check against a live server —
+not run against one this session (see the progress-tracker note on why).
 
 ---
 
-## Phase 3 — Server URL + auth
+## Phase 3 — Server URL + auth ✅ done 2026-08-27
 
 The client cannot know the server at build time, and `createAuthClient`
 takes its `baseURL` at construction.
 
-- `server-url.tsx`: text input, validated by `GET /api/health` expecting
-  `{ ok: true, service: "nekostream" }`, persisted to AsyncStorage.
-- Because `authClient` is created at module load, **construct it lazily**
-  behind a getter that reads the stored URL, and recreate it if the URL
-  changes. Building it eagerly at import is the single most likely way to
-  ship a client permanently pointed at the wrong host.
-- `login.tsx`: one AniList button, mirroring `/login`. Calls
-  `authClient.signIn.oauth2({ providerId: "anilist", callbackURL: "/" })`.
-- `_layout.tsx`: gate — no server URL → `server-url`; no session →
-  `login`; otherwise tabs. This replaces the per-page `getSession` +
-  `redirect` that every web page repeats.
+What landed:
+- `auth/server-url.ts` — validate (`GET /api/health` → `service:
+  "nekostream"`) / persist (AsyncStorage, key `nekostream:server-url`) /
+  read the base URL, with a synchronous module cache (`getServerUrl()`)
+  that `loadServerUrl()` primes at startup. `normalizeServerUrl()` assumes
+  `http://` when no scheme is typed (the LAN-address case).
+- `auth/client.ts` — `getAuthClient()` builds the `@better-auth/expo`
+  client **lazily** and rebuilds it if the server URL changed; wires
+  `setAuthHeadersProvider` to `client.getCookie()` so `api/client.ts`
+  attaches the session cookie.
+- `auth/context.tsx` (a deviation — the plan's tree had no context file):
+  `<AuthProvider>` owns the whole gate as a `status` of
+  `loading | no-server | no-session | ready`, plus `setServer` / `signIn`
+  (`signIn.oauth2({ providerId: "anilist", callbackURL: "/" })`) /
+  `signOut` / `changeServer`. Session is managed imperatively, not via the
+  client's `useSession` hook, because the client is rebuilt on URL change.
+- `app/server-url.tsx`, `app/login.tsx` (mirrors web `/login`),
+  `app/index.tsx` (was the Phase 2 debug screen; now the authed landing
+  placeholder until Phase 4's `(tabs)` redirect).
+- `app/_layout.tsx` — the gate, as three mutually-exclusive
+  `<Stack.Protected guard={status === ...}>` branches (SDK 57's recommended
+  pattern) rather than a manual `router.replace`. Replaces the per-page
+  `getSession` + `redirect` every web page repeats.
 
-**Verify:** cold install → enter URL → AniList consent in the system
-browser → deep link back → session persists across a force-quit. Then
-sign out and confirm SecureStore is cleared.
+Deviations / notes:
+- **npm version skew.** A fresh `mobile/` install pulled
+  `@better-auth/core@1.7.2` (via `@better-auth/expo`'s `^` range) alongside
+  `better-auth@1.6.25`'s pinned `1.6.25`, which broke the client-plugin
+  types. Fixed with a `"overrides": { "@better-auth/core": "1.6.25" }` in
+  `mobile/package.json`, matching the root install.
+- `@better-auth/expo@1.6.25`'s `expoClient()` still doesn't structurally
+  satisfy `better-auth@1.6.25`'s `BetterAuthClientPlugin` (`getActions`
+  arity), so it's cast to that type at the one call site. Runtime contract
+  is exactly the documented one; revisit the cast on the next bump.
+- No `ui/` primitives yet — three screens with local `StyleSheet`. Phase 4
+  builds `ui/` and these get folded in.
+
+**Verify:** typecheck + lint clean; `expo export` bundles cleanly for
+android and web (1523 / 1056 modules), all three routes render. **Not yet
+run on a device** (needs an EAS dev build + a live server): cold install →
+enter URL → AniList consent in the system browser → deep link back →
+session persists across a force-quit; then sign out and confirm SecureStore
+is cleared. `MOBILE_APP_SCHEME=nekostream://` must be set on the server for
+the deep-link redirect to pass the origin check.
 
 ---
 
-## Phase 4 — Library, schedule, search
+## Phase 4 — Library, schedule, search ✅ done 2026-08-27
 
 The three read-mostly tabs. Shippable as a usable read-only app.
 
@@ -307,8 +392,54 @@ Note: JSON serialises the `timestamp` columns as ISO strings. Parse them
 back to `Date` at the API boundary in `api/types.ts` — the shared sort and
 grouping helpers take real `Date` objects.
 
-**Verify:** side-by-side against the web app on the same account — same
-counts per filter tab, same sort order, same day grouping.
+### Deviations from the above
+
+- **A fourth tab, Settings, shipped early.** The tab bar matches
+  `SiteHeader`'s four destinations, and Phase 3's sign-out / change-server
+  controls lived on the placeholder `app/index.tsx` that `(tabs)` replaces.
+  Leaving them unreachable for a whole phase would be a regression, so
+  `(tabs)/settings.tsx` exists now with account + server + those two
+  actions. Everything else on it — notification email, Stremio, the MAL
+  link — is still Phase 5, and it makes no `/api/settings` call yet.
+- **`app/index.tsx` was deleted rather than turned into a redirect.** Both
+  it and `(tabs)/index.tsx` resolve to `/`, so keeping both would be a route
+  collision. The gate's ready branch is now `<Stack.Screen name="(tabs)" />`.
+- **The first-run banner is driven by the sync request's own state, not by
+  `anilistSyncedAt`.** The banner the web renders comes from `AniListSync`'s
+  request state; `anilistSyncedAt` only seeds its initial value there. Since
+  the import fires on launch here anyway, reading the flag would have cost a
+  second `/api/settings` round trip to compute something the request already
+  reports. `anilistSyncedAt` is still typed in `api/types.ts` for Phase 5.
+- **Pull-to-refresh does not pass `force=1`.** The plan says it calls
+  `POST /api/library/sync`, which it does — unforced, so the server's
+  five-minute throttle still applies. Forcing on every pull would hammer
+  AniList for no gain; the local library reloads either way.
+- **Library cards are not pressable.** They open the Phase 5 detail screen,
+  which does not exist — and with `typedRoutes` on, an `/anime/[id]` href
+  would not even typecheck. Phase 5 adds the route and the press handler
+  together.
+- **No preview sheet on Search.** The web's exists so a title that isn't in
+  the library still has somewhere to show its synopsis; on a phone that is
+  what the Phase 5 detail screen is for. Phase 4 shipped the part that
+  changes the library — the Add button.
+- **New primitives beyond the tree above:** `ui/screen.tsx` (the shared
+  safe-area frame, title block, loading and empty states) and
+  `ui/option-sheet.tsx` (a Modal-based single-choice list — what the web's
+  `<select>` for sort order becomes). `api/use-resource.ts` holds the
+  load-on-focus/pull-to-refresh pattern the three data tabs share; the focus
+  refetch is this app's `router.refresh()`, which is why adding a title on
+  Search shows up on Library with no cross-screen wiring.
+- **One new dependency:** `@expo/vector-icons` for the tab bar glyphs — see
+  `context/tech-stack.md`'s mobile matrix.
+
+**Verify:** typecheck + lint clean in `mobile/`; `expo export` bundles
+cleanly for android and web, and the Android bundle was grepped for strings
+that exist only inside the shared `sort.ts` and `group.ts` to confirm the
+`@shared/*` imports resolve at bundle time, not just under `tsc`. Root
+`typecheck`/`lint`/`test` (97/97) still green. **Not yet run against a live
+server or on a device** — the side-by-side check below is still outstanding:
+same counts per filter tab, same sort order, same day grouping as the web
+app on the same account.
 
 ---
 
