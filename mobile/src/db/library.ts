@@ -268,3 +268,29 @@ export async function episodeCounts(
 
   return new Map(rows.map((row) => [row.libraryEntryId, row.count]));
 }
+
+/**
+ * The local mirror of a deliberate AniList edit (see `sync/tracker.ts`), and
+ * the per-anime sync toggles the tracker editor writes.
+ */
+export async function setTrackerFields(
+  id: string,
+  values: { progress?: number; anilistStatus?: string }
+): Promise<void> {
+  const now = new Date();
+
+  await db
+    .update(libraryEntry)
+    .set({ ...values, lastActivityAt: now, updatedAt: now })
+    .where(eq(libraryEntry.id, id));
+}
+
+export async function setSyncFlags(
+  id: string,
+  flags: { syncAnilist?: boolean; syncMal?: boolean }
+): Promise<void> {
+  await db
+    .update(libraryEntry)
+    .set({ ...flags, updatedAt: new Date() })
+    .where(eq(libraryEntry.id, id));
+}

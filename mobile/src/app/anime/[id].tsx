@@ -11,7 +11,6 @@ import { Image } from "expo-image";
 import { Stack, useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import {
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -21,12 +20,13 @@ import {
 
 import { mediaById, type AniListMedia } from "@shared/anilist/queries";
 import type { SavedFilter } from "@shared/nyaa/filter";
-import { anilistAnimeUrl, malAnimeUrl } from "@shared/providers";
 
 import { AiringBadge } from "@/components/airing-badge";
 import { EpisodeList } from "@/components/episode-list";
 import { NyaaFilterPanel } from "@/components/nyaa-filter-panel";
 import { ProgressControl } from "@/components/progress-control";
+import { TrackerEditors } from "@/components/tracker-editor";
+import { TrackerLinks } from "@/components/tracker-links";
 import { useQuery } from "@/data/use-query";
 import { entryById } from "@/db/library";
 import {
@@ -37,6 +37,7 @@ import {
   type EpisodeRow,
   type RssFilterRow,
 } from "@/db/nyaa";
+import { useAuth } from "@/auth/context";
 import { useNow } from "@/hooks/use-now";
 import { tickProgress, type SyncOutcome } from "@/sync/progress";
 import { refreshEpisodes } from "@/sync/refresh";
@@ -47,9 +48,10 @@ export default function AnimeDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const now = useNow();
+  const { mal } = useAuth();
 
   const load = useCallback(() => entryById(id), [id]);
-  const { data: entry, loading, setData } = useQuery(load, "Not found.");
+  const { data: entry, loading, setData, reload } = useQuery(load, "Not found.");
 
   // AniList's own copy — description, genres, score. Fetched separately
   // because none of it is worth storing per entry (see viewerLibrary's own
@@ -239,26 +241,27 @@ export default function AnimeDetailScreen() {
           </View>
         </View>
 
-        <ProgressControl
-          progress={entry.progress}
-          totalEpisodes={entry.totalEpisodes}
-          onChange={onChange}
-        />
-
-        <View style={styles.trackerLinks}>
-          <TrackerLink
-            label="AniList"
-            tint={theme.color.anilist}
-            url={anilistAnimeUrl(entry.anilistMediaId)}
+        <View style={styles.controls}>
+          <ProgressControl
+            progress={entry.progress}
+            totalEpisodes={entry.totalEpisodes}
+            onChange={onChange}
           />
-          {entry.malMediaId ? (
-            <TrackerLink
-              label="MyAnimeList"
-              tint={theme.color.mal}
-              url={malAnimeUrl(entry.malMediaId)}
-            />
-          ) : null}
+
+          {/* The manual override: what each tracker actually holds, editable
+              field by field — distinct from the stepper above, which only
+              pushes progress. */}
+          <TrackerEditors
+            entry={entry}
+            malLinked={mal !== null}
+            onSaved={() => void reload()}
+          />
         </View>
+
+        <TrackerLinks
+          anilistMediaId={entry.anilistMediaId}
+          malMediaId={entry.malMediaId}
+        />
 
         {media?.genres?.length ? (
           <Text style={styles.genres}>{media.genres.join(" · ")}</Text>
@@ -289,30 +292,6 @@ export default function AnimeDetailScreen() {
   );
 }
 
-function TrackerLink({
-  label,
-  tint,
-  url,
-}: {
-  label: string;
-  tint: string;
-  url: string;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="link"
-      onPress={() => void Linking.openURL(url)}
-      style={({ pressed }) => [
-        styles.trackerLink,
-        { borderColor: tint },
-        pressed && styles.pressed,
-      ]}
-    >
-      <Text style={[styles.trackerLabel, { color: tint }]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 /**
  * AniList returns descriptions with `asHtml: false`, which still leaves `<br>`
  * and the odd `<i>` in the text. React Native renders neither, so they are
@@ -326,6 +305,14 @@ function stripHtml(text: string): string {
 }
 
 const styles = StyleSheet.create({
+  controls: {
+    gap: 14,
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: theme.color.border,
+    backgroundColor: theme.color.surface,
+  },
   content: {
     paddingHorizontal: SCREEN_PADDING,
     paddingBottom: 40,
@@ -352,16 +339,6 @@ const styles = StyleSheet.create({
   },
   subtitle: { color: theme.color.muted, fontSize: 13, lineHeight: 18 },
   meta: { color: theme.color.muted, fontSize: 12 },
-  trackerLinks: { flexDirection: "row", gap: 10 },
-  trackerLink: {
-    minHeight: 40,
-    justifyContent: "center",
-    paddingHorizontal: 14,
-    borderRadius: 8,
-    borderWidth: 1,
-    backgroundColor: theme.color.surface,
-  },
-  trackerLabel: { fontSize: 13, fontWeight: "600" },
   pressed: { opacity: 0.75 },
   genres: { color: theme.color.muted, fontSize: 12 },
   description: {
