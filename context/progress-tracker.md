@@ -76,9 +76,12 @@ with reasoning:
   `MOBILE_APP_SCHEME` in `lib/auth.ts` (nor `getScheduleEntries` in
   `library-routes.ts`) — both landed in `2541cd0` on
   `mobile-client/phase-0-1-groundwork`, which has never been merged.
-  **Unblocking takes three steps, in order:** merge that branch to `main`;
-  redeploy the Pi; add `MOBILE_APP_SCHEME=nekostream://` to its Compose env
-  and restart. Until then the Schedule tab will also 404.
+  **Step 1 of 3 is done** — merged to `main` and pushed as `dceb555`
+  (Aug 27). Still outstanding: redeploy the Pi from `main`, and add
+  `MOBILE_APP_SCHEME=nekostream://` to its Compose env before restarting.
+  Until both land, sign-in still fails and the Schedule tab 404s. The APK
+  needs no rebuild for the deploy itself, only for the client changes that
+  shipped alongside it.
 - **The rest of the device pass is still unrun**, because sign-in gates it:
   AniList consent → deep link back → force-quit → session persists; then the
   Phase 4 side-by-side — same counts per filter tab, same sort order, same

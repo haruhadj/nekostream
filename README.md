@@ -28,10 +28,11 @@ Register the OAuth apps and set their redirect URLs to match `BETTER_AUTH_URL`:
 
 ### Origins
 
-| Variable          | Required | What it is                                                                    |
-| ----------------- | -------- | ----------------------------------------------------------------------------- |
-| `BETTER_AUTH_URL` | yes      | The single canonical origin. Forms every OAuth redirect URI.                  |
-| `PUBLIC_URL`      | no       | The public https origin, when it differs. Only the Stremio addon URL uses it. |
+| Variable            | Required | What it is                                                                    |
+| ------------------- | -------- | ----------------------------------------------------------------------------- |
+| `BETTER_AUTH_URL`   | yes      | The single canonical origin. Forms every OAuth redirect URI.                  |
+| `PUBLIC_URL`        | no       | The public https origin, when it differs. Only the Stremio addon URL uses it. |
+| `MOBILE_APP_SCHEME` | no       | The mobile client's URL scheme, e.g. `nekostream://`. Trusted as an origin.   |
 
 `BETTER_AUTH_URL` must be the address you actually reach the app on, and there
 can only be one of it. Sessions are cookies, and a cookie set on one origin is
@@ -53,6 +54,16 @@ shown in Settings uses it regardless of which origin the browser is on; leave
 it unset and the addon URL follows the incoming request. When the app is
 reached on one https hostname throughout, it is redundant — set it to the same
 value or omit it.
+
+`MOBILE_APP_SCHEME` exists because the Expo client's OAuth callback comes back
+to `nekostream://` rather than to an http origin, and better-auth rejects any
+callback URL whose origin it does not trust. Set it to the `scheme` in
+`mobile/app.json` with the trailing `://` — a bare `nekostream` does not match.
+It is optional, and being optional it fails quietly: the server starts
+normally without it and the only symptom is that signing in from the app fails
+with **"Invalid callbackURL"**. Unlike the two above, changing it needs no
+provider-console update — AniList and MyAnimeList still redirect to
+`BETTER_AUTH_URL`, and better-auth forwards from there to the app.
 
 ### Email notifications
 

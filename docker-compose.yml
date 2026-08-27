@@ -20,6 +20,14 @@ services:
       # Only the Stremio addon URL uses it — Stremio Web rejects plain http.
       PUBLIC_URL: "${PUBLIC_URL:-}"
 
+      # Optional. The mobile client's URL scheme, e.g. "nekostream://". Added
+      # to better-auth's trustedOrigins so the app's OAuth callback is
+      # accepted; unset means no mobile client is deployed against this
+      # server. Sign-in from the app fails with "Invalid callbackURL" until
+      # this is set — including the trailing "://", which is part of the
+      # origin better-auth matches against.
+      MOBILE_APP_SCHEME: "${MOBILE_APP_SCHEME:-}"
+
       ANILIST_CLIENT_ID: "${ANILIST_CLIENT_ID:?set ANILIST_CLIENT_ID in .env}"
       ANILIST_CLIENT_SECRET: "${ANILIST_CLIENT_SECRET:?set ANILIST_CLIENT_SECRET in .env}"
 
