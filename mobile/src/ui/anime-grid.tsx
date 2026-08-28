@@ -113,14 +113,18 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     lineHeight: GRID_COLUMNS > 2 ? 15 : 18,
   },
-  // React Native has no gradients without a native dependency; a flat wash
-  // over the bottom third does the same job for a one-line badge.
+  // The web's `bg-gradient-to-t from-background/85 to-transparent`, restored:
+  // the flat wash that stood in for it — React Native once had no gradient
+  // without a native dependency — read as a hard black band across the foot of
+  // every cover. RN 0.86 takes CSS gradients directly; `experimental_` is its
+  // name for the property, not a flag to turn on.
   scrim: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
     height: "33%",
-    backgroundColor: "rgba(9, 9, 11, 0.65)",
+    experimental_backgroundImage:
+      "linear-gradient(to top, rgba(9, 9, 11, 0.85), rgba(9, 9, 11, 0))",
   },
 });
