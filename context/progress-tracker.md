@@ -115,6 +115,8 @@ with reasoning:
 | `library_entry` is unique on `anilistMediaId` alone (`library_entry_media_idx`), replacing the server's `(userId, anilistMediaId)` | With one user per device the media id carries the same meaning: a show appears in the library once. | Aug 27, 2026 |
 | Migrations apply behind a gate that renders a visible error, not a silent catch | Every screen is about to read this database, and "empty library" is the wrong way to report "the schema never applied" — the same reasoning as the auth gate surfacing a revoked token rather than rendering nothing. `MigrationsGate` sits outside `AuthProvider` because the database has to exist before anything reads it. | Aug 27, 2026 |
 | Phase 3 gate is three `<Stack.Protected>` guards, not an imperative `router.replace` in `_layout.tsx` | It's the SDK 57 docs' recommended auth pattern: expo-router redirects to whichever branch's `guard` is true when `useAuth().status` changes, so sign-in / sign-out / change-server flip screens with no navigation code. Session is tracked imperatively (getSession/signIn/signOut) rather than the client's `useSession` hook because `getAuthClient()` is rebuilt when the server URL changes. | Aug 27, 2026 |
+| Device gradients use RN 0.86's `experimental_backgroundImage`, not `expo-linear-gradient` | `mobile/src/ui/anime-grid.tsx`'s `PosterScrim` had been ported as a flat opaque wash on the premise that "React Native has no gradients without a native dependency" — true when written, not in RN 0.86, which parses CSS gradient strings in core. Restores the web's `bg-gradient-to-t from-background/85 to-transparent` exactly: no new dependency, no native rebuild, hot-reloaded onto the device. The `experimental_` prefix is the property's name, not a flag to enable. **Still true** next door in `airing-badge.tsx`: RN cannot blur what is behind a view without a native dependency. | Aug 28, 2026 |
+| Local development is a debug build against Metro; Expo Go is ruled out permanently, and the procedure lives in `mobile/README.md` | Expo Go cannot run this project at all — it refuses SDK 57 outright, and it owns `exp+nekostream://` rather than the `nekostream://` that both OAuth consoles have registered character-for-character, so sign-in (which gates the whole app) can never complete. The question kept getting re-asked across sessions, so the answer and both full procedures (debug loop, signed release) are now written down in `mobile/README.md`, with `mobile/AGENTS.md` pointing at it. | Aug 28, 2026 |
 
 ## Open items
 
@@ -158,6 +160,10 @@ with reasoning:
 - Beware `adb exec-out screencap` on this device: it returned an all-black
   frame while the app was rendering normally. `uiautomator dump` showed the
   real view tree. Trust the hierarchy over the screenshot when they disagree.
+  **Aug 28:** screencap returned correct frames repeatedly across a full
+  session (splash, library grid, settings, tab switches), so this reads as
+  situational rather than a property of the device. One frame did come back
+  near-black mid-transition, so the advice stands whenever they disagree.
 - **`Intl` under Hermes — settled, and it is not one answer but three.**
   Verified on device Aug 27: **`Intl.Collator` works** (Library sorts
   correctly, `2.5 Dimensional Seduction` first under Title A–Z) and
@@ -603,3 +609,30 @@ Two lines per session: what happened, what's next.
   touches the third. Still unverified, and left to the operator because they
   write to real accounts: a progress tick reaching both trackers, a saved Nyaa
   feed, and a magnet hand-off.
+
+- **2026-08-28 (the dev loop, written down)** — Established how this app is
+  actually run day to day, and wrote it into `mobile/README.md` (new) with
+  `mobile/AGENTS.md` pointing at it, because the Expo Go question keeps coming
+  back and costs an hour every time. It cannot work: SDK 57 is refused
+  outright, and the `nekostream://` redirects are registered per-provider
+  while Expo Go owns `exp+nekostream://`. The loop is a debug build
+  (`npm run android`, ~20 min once) plus `npx expo start`, then **tap the app
+  icon** — pressing `a` launches Expo Go, whose error screen then sits on top
+  of a perfectly healthy app (`dumpsys activity activities | grep
+  topResumedActivity` is what settles which app is actually in front). Run
+  `adb reverse tcp:8081 tcp:8081` *after* the CLI starts: it restarts the adb
+  server and silently clears reverses, and the app only fetches its bundle at
+  startup, so a cleared reverse reads as "stuck on the splash" and
+  foregrounding the running instance never retries it. Fixed the black band
+  across the foot of every library cover — `PosterScrim` was a flat wash
+  standing in for the web's gradient; RN 0.86 takes CSS gradients in core, so
+  it now matches the web and hot-reloaded onto the device without a rebuild.
+  Release APK rebuilt and signed, and verified by grepping the bundle *inside*
+  the APK for the new string rather than trusting the build — `packageRelease`
+  had failed once on stale incremental state (passed on retry), and a piped
+  invocation reported `tail`'s exit code, so a failed build read as success.
+  **Cost paid:** the release build was uninstalled to make room for the debug
+  build (signatures differ), which took its `rss_filter` rows with it — the
+  one table with no copy anywhere. Next: install the signed APK (another
+  uninstall), and the Aug 27 tracker-write pass — a progress tick reaching both
+  trackers, a saved Nyaa feed, a magnet hand-off — is still unrun.
