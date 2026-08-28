@@ -4,10 +4,16 @@
  * The watched-against-aired gap is the whole point of the screen, so the two
  * signals it carries are kept verbatim: the two-layer `EpisodeBar`, and the
  * amber card border whenever something has aired that hasn't been watched.
+ *
+ * Opens the anime, as the web's card does — an aired-but-unwatched episode is
+ * a reason to go somewhere, and a card showing one without being tappable is
+ * a dead end. `router.push` rather than `<Link asChild>`: see the note in
+ * `library-card.tsx` for what that wrapper does to a Pressable's style.
  */
 
 import { Image } from "expo-image";
-import { StyleSheet, Text, View } from "react-native";
+import { useRouter } from "expo-router";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import type { ScheduleRow } from "@/db/library";
 import { theme } from "@/theme";
@@ -53,6 +59,8 @@ export function ScheduleCard({
   airingNext: boolean;
   now: number;
 }) {
+  const router = useRouter();
+
   const hasAired = entry.airingAt.getTime() <= now;
   // A row tracks one episode at a time: `nextAiringEpisode` is upcoming until
   // its air time passes, after which it is itself the latest aired episode —
@@ -73,7 +81,18 @@ export function ScheduleCard({
         <Badge label="Airing Next" variant="accent" style={styles.nextBadge} />
       ) : null}
 
-      <View style={[styles.card, unwatched > 0 && styles.cardBehind]}>
+      <Pressable
+        onPress={() =>
+          router.push({ pathname: "/anime/[id]", params: { id: entry.id } })
+        }
+        accessibilityRole="button"
+        accessibilityLabel={entry.titleEnglish ?? entry.titleRomaji}
+        style={({ pressed }) => [
+          styles.card,
+          unwatched > 0 && styles.cardBehind,
+          pressed && styles.pressed,
+        ]}
+      >
         <View style={styles.cover}>
           {entry.coverImageUrl ? (
             <Image
@@ -129,7 +148,7 @@ export function ScheduleCard({
             <Text style={styles.polling}>Checking for a release</Text>
           ) : null}
         </View>
-      </View>
+      </Pressable>
     </View>
   );
 }
@@ -150,6 +169,7 @@ const styles = StyleSheet.create({
   // An unwatched aired episode is the reason to open this show at all, so
   // those cards carry the signal out to their edge.
   cardBehind: { borderColor: theme.color.amberBorder },
+  pressed: { opacity: 0.75 },
   cover: {
     width: 40,
     height: 56,
