@@ -3,15 +3,33 @@
  *
  * Pressable as of Phase 3, when `/anime/[id]` — and with it somewhere to tick
  * progress — finally exists.
+ *
+ * Navigates with `router.push` rather than `<Link asChild>`, and that is
+ * load-bearing rather than taste: under `asChild` this card lost its own
+ * `flex: 1, maxWidth` entirely, so every cover filled the whole row and the
+ * second column overflowed off-screen.
+ *
+ * The cause is expo-router's Slot shim (`expo-router/build/ui/Slot.js`), which
+ * destructures `style` off the Link's props, runs it through
+ * `StyleSheet.flatten`, and passes the result to the child. A Pressable's style
+ * is a *function* of press state, which cannot survive that merge — the shim
+ * even throws in development when a child's style is an array. Putting the
+ * styles on the Link instead would work, but then press feedback has nowhere
+ * to live; `router.push` keeps both.
  */
 
-import { Link } from "expo-router";
+import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { AiringBadge } from "@/components/airing-badge";
 import type { LibraryEntryRow } from "@/db/library";
-import { AnimePoster, AnimeTitle, GRID_ITEM_MAX_WIDTH, PosterScrim } from "@/ui/anime-grid";
 import { theme } from "@/theme";
+import {
+  AnimePoster,
+  AnimeTitle,
+  GRID_ITEM_MAX_WIDTH,
+  PosterScrim,
+} from "@/ui/anime-grid";
 
 export function LibraryCard({
   entry,
@@ -21,6 +39,8 @@ export function LibraryCard({
   /** One clock for the whole grid — see `useNow`. */
   now: number;
 }) {
+  const router = useRouter();
+
   // Only a known total gives a meaningful bar; ongoing shows with an unknown
   // length would otherwise render a fake full one.
   const ratio =
@@ -29,40 +49,39 @@ export function LibraryCard({
       : null;
 
   return (
-    <Link href={`/anime/${entry.id}`} asChild>
-      <Pressable
-        style={({ pressed }) => [styles.card, pressed && styles.pressed]}
-        accessibilityRole="button"
-        accessibilityLabel={entry.titleEnglish ?? entry.titleRomaji}
-      >
-        <AnimePoster coverImageUrl={entry.coverImageUrl}>
-          <PosterScrim />
+    <Pressable
+      onPress={() =>
+        router.push({ pathname: "/anime/[id]", params: { id: entry.id } })
+      }
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      accessibilityRole="button"
+      accessibilityLabel={entry.titleEnglish ?? entry.titleRomaji}
+    >
+      <AnimePoster coverImageUrl={entry.coverImageUrl}>
+        <PosterScrim />
 
-          {entry.nextAiringAt && entry.nextAiringEpisode ? (
-            <AiringBadge
-              episodeNumber={entry.nextAiringEpisode}
-              airingAt={entry.nextAiringAt}
-              now={now}
-            />
-          ) : null}
+        {entry.nextAiringAt && entry.nextAiringEpisode ? (
+          <AiringBadge
+            episodeNumber={entry.nextAiringEpisode}
+            airingAt={entry.nextAiringAt}
+            now={now}
+          />
+        ) : null}
 
-          {ratio !== null && ratio > 0 ? (
-            <View style={styles.progressTrack}>
-              <View
-                style={[styles.progressFill, { width: `${ratio * 100}%` }]}
-              />
-            </View>
-          ) : null}
-        </AnimePoster>
+        {ratio !== null && ratio > 0 ? (
+          <View style={styles.progressTrack}>
+            <View style={[styles.progressFill, { width: `${ratio * 100}%` }]} />
+          </View>
+        ) : null}
+      </AnimePoster>
 
-        <AnimeTitle>{entry.titleEnglish ?? entry.titleRomaji}</AnimeTitle>
+      <AnimeTitle>{entry.titleEnglish ?? entry.titleRomaji}</AnimeTitle>
 
-        <Text style={styles.progressLabel}>
-          {entry.progress}
-          {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
-        </Text>
-      </Pressable>
-    </Link>
+      <Text style={styles.progressLabel}>
+        {entry.progress}
+        {entry.totalEpisodes ? ` / ${entry.totalEpisodes}` : ""} watched
+      </Text>
+    </Pressable>
   );
 }
 
